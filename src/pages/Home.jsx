@@ -132,8 +132,9 @@ const Home = () => {
       {/* Modern Header */}
       <header className="bg-white/95 backdrop-blur-sm shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex justify-start lg:w-0 lg:flex-1">
+          <div className="flex items-center justify-between py-4">
+            {/* Left side - Logo */}
+            <div className="flex items-center">
               <Link to="/" className="flex items-center space-x-2">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
                   <HeartIcon className="w-6 h-6 text-white" />
@@ -144,7 +145,8 @@ const Home = () => {
               </Link>
             </div>
             
-            <nav className="hidden md:flex space-x-8">
+            {/* Center - Navigation Links */}
+            <nav className="hidden md:flex absolute left-1/2 transform -translate-x-1/2 space-x-8">
               <a href="#features" className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">
                 Features
               </a>
@@ -159,7 +161,8 @@ const Home = () => {
               </a>
             </nav>
 
-            <div className="flex items-center space-x-4">
+            {/* Right side - Auth buttons */}
+            <div className="flex items-center space-x-6">
               {isAuthenticated ? (
                 <Link
                   to="/app"

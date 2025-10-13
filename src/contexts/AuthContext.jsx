@@ -12,7 +12,7 @@ export const useAuth = () => {
 };
 
 // Configure axios defaults
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'https://ehr-eezy-backend-production.up.railway.app';
 axios.defaults.withCredentials = false;
 
 // Add request interceptor to include auth token and ensure proper headers

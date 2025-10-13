@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeftIcon, PencilIcon, CalendarIcon, DocumentIcon, CreditCardIcon, PhoneIcon, EnvelopeIcon, MapPinIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PencilIcon, CalendarDaysIcon, DocumentTextIcon, CreditCardIcon, PhoneIcon, EnvelopeIcon, MapPinIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import PatientRegistrationForm from './PatientRegistrationForm';
@@ -86,7 +86,7 @@ const PatientProfile = () => {
             Edit Patient
           </button>
           <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
-            <CalendarIcon className="h-4 w-4 mr-2" />
+            <CalendarDaysIcon className="h-4 w-4 mr-2" />
             Schedule Appointment
           </button>
         </div>
@@ -278,14 +278,14 @@ const PatientProfile = () => {
           {/* Other tabs content */}
           {activeTab === 'appointments' && (
             <div className="text-center py-12">
-              <CalendarIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <CalendarDaysIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">Appointments functionality will be integrated here</p>
             </div>
           )}
 
           {activeTab === 'records' && (
             <div className="text-center py-12">
-              <DocumentIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <DocumentTextIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">Medical records functionality will be integrated here</p>
             </div>
           )}

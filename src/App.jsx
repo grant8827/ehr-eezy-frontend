@@ -14,9 +14,10 @@ import Appointments from './pages/Appointments';
 import MedicalRecords from './pages/MedicalRecords';
 import Billing from './pages/Billing';
 import Messages from './pages/Messages';
-import Telehealth from './pages/Telehealth';
+import TelehealthDashboard from './pages/TelehealthDashboard';
 import Profile from './pages/Profile';
 import Staff from './pages/Staff';
+import JoinConsultation from './pages/JoinConsultation';
 function App() {
   return (
     <AuthProvider>
@@ -29,6 +30,10 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/pricing" element={<Pricing />} />
+            
+            {/* Consultation join pages (public for patients) */}
+            <Route path="/join/*" element={<JoinConsultation />} />
+            <Route path="/app/telehealth/join" element={<JoinConsultation />} />
             
             {/* Protected routes */}
             <Route path="/app" element={
@@ -43,7 +48,7 @@ function App() {
               <Route path="medical-records/*" element={<MedicalRecords />} />
               <Route path="billing/*" element={<Billing />} />
               <Route path="messages/*" element={<Messages />} />
-              <Route path="telehealth/*" element={<Telehealth />} />
+              <Route path="telehealth/*" element={<TelehealthDashboard />} />
               <Route path="profile" element={<Profile />} />
               <Route path="staff/*" element={<Staff />} />
             </Route>
