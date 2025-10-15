@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Pricing from './pages/Pricing';
 import Home from './pages/Home';
+import PatientSetup from './pages/PatientSetup';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
 import Appointments from './pages/Appointments';
@@ -30,6 +31,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/patient-setup" element={<PatientSetup />} />
             
             {/* Consultation join pages (public for patients) */}
             <Route path="/join/*" element={<JoinConsultation />} />
