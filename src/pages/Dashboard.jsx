@@ -1,5 +1,10 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { 
+  getFormattedStats, 
+  getTodaysAppointments, 
+  getRecentMessages 
+} from '../utils/dashboardData';
 import {
   UserGroupIcon,
   CalendarDaysIcon,
@@ -14,56 +19,16 @@ import {
 const Dashboard = () => {
   const { user, isDoctor, isPatient, isAdmin, isReceptionist, isNurse } = useAuth();
 
-  // Mock data - in real app, this would come from API
-  const stats = {
-    totalPatients: 1247,
-    todayAppointments: 8,
-    pendingRecords: 12,
-    monthlyRevenue: 45670,
-    unreadMessages: 5,
-    upcomingAppointments: 15,
+  // Get consistent data from shared utility
+  const getUserRole = () => {
+    if (isDoctor) return 'doctor';
+    if (isPatient) return 'patient';
+    return 'admin'; // Default for admin/receptionist/nurse
   };
 
-  const recentAppointments = [
-    {
-      id: 1,
-      patient: 'John Doe',
-      time: '09:00 AM',
-      type: 'Regular Checkup',
-      status: 'confirmed',
-    },
-    {
-      id: 2,
-      patient: 'Jane Smith',
-      time: '10:30 AM',
-      type: 'Follow-up',
-      status: 'pending',
-    },
-    {
-      id: 3,
-      patient: 'Mike Johnson',
-      time: '02:00 PM',
-      type: 'Telehealth',
-      status: 'confirmed',
-    },
-  ];
-
-  const recentMessages = [
-    {
-      id: 1,
-      from: 'Dr. Sarah Wilson',
-      subject: 'Patient consultation follow-up',
-      time: '2 hours ago',
-      unread: true,
-    },
-    {
-      id: 2,
-      from: 'Reception',
-      subject: 'Appointment confirmation',
-      time: '4 hours ago',
-      unread: false,
-    },
-  ];
+  const dashboardStats = getFormattedStats(getUserRole());
+  const recentAppointments = getTodaysAppointments().slice(0, 3); // Show first 3
+  const recentMessages = getRecentMessages(3); // Show 3 most recent
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -72,104 +37,17 @@ const Dashboard = () => {
     return 'Good evening';
   };
 
-  const getDashboardStats = () => {
-    if (isDoctor) {
-      return [
-        {
-          name: "Today's Appointments",
-          stat: stats.todayAppointments,
-          icon: CalendarDaysIcon,
-          change: '+2',
-          changeType: 'increase',
-        },
-        {
-          name: 'Total Patients',
-          stat: stats.totalPatients,
-          icon: UserGroupIcon,
-          change: '+12',
-          changeType: 'increase',
-        },
-        {
-          name: 'Pending Records',
-          stat: stats.pendingRecords,
-          icon: DocumentTextIcon,
-          change: '-3',
-          changeType: 'decrease',
-        },
-        {
-          name: 'Unread Messages',
-          stat: stats.unreadMessages,
-          icon: ChatBubbleLeftRightIcon,
-          change: '+2',
-          changeType: 'increase',
-        },
-      ];
-    }
-
-    if (isPatient) {
-      return [
-        {
-          name: 'Upcoming Appointments',
-          stat: 2,
-          icon: CalendarDaysIcon,
-          change: '+1',
-          changeType: 'increase',
-        },
-        {
-          name: 'Medical Records',
-          stat: 15,
-          icon: DocumentTextIcon,
-          change: '+1',
-          changeType: 'increase',
-        },
-        {
-          name: 'Unread Messages',
-          stat: 3,
-          icon: ChatBubbleLeftRightIcon,
-          change: '+1',
-          changeType: 'increase',
-        },
-        {
-          name: 'Prescriptions',
-          stat: 8,
-          icon: ClockIcon,
-          change: '0',
-          changeType: 'same',
-        },
-      ];
-    }
-
-    // Default admin/receptionist/nurse stats
-    return [
-      {
-        name: 'Total Patients',
-        stat: stats.totalPatients,
-        icon: UserGroupIcon,
-        change: '+12',
-        changeType: 'increase',
-      },
-      {
-        name: "Today's Appointments",
-        stat: stats.todayAppointments,
-        icon: CalendarDaysIcon,
-        change: '+2',
-        changeType: 'increase',
-      },
-      {
-        name: 'Monthly Revenue',
-        stat: `$${stats.monthlyRevenue.toLocaleString()}`,
-        icon: CurrencyDollarIcon,
-        change: '+8.2%',
-        changeType: 'increase',
-      },
-      {
-        name: 'Pending Records',
-        stat: stats.pendingRecords,
-        icon: DocumentTextIcon,
-        change: '-3',
-        changeType: 'decrease',
-      },
-    ];
+  // Map icon names to actual icon components
+  const getIconComponent = (iconName) => {
+    const iconMap = {
+      CalendarDaysIcon,
+      UserGroupIcon,
+      DocumentTextIcon,
+      CurrencyDollarIcon,
+      ChatBubbleLeftRightIcon,
+      ClockIcon
+    };
+    return iconMap[iconName] || CalendarDaysIcon;
   };
 
   return (
@@ -187,41 +65,45 @@ const Dashboard = () => {
       {/* Stats */}
       <div className="mt-8">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {getDashboardStats().map((item) => (
-            <div key={item.name} className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <item.icon className="h-6 w-6 text-gray-400" aria-hidden="true" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">{item.name}</dt>
-                      <dd>
-                        <div className="text-lg font-medium text-gray-900">{item.stat}</div>
-                      </dd>
-                    </dl>
+          {dashboardStats.map((item) => {
+            const IconComponent = getIconComponent(item.icon);
+            return (
+              <div key={item.name} className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="p-5">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <IconComponent className="h-6 w-6 text-gray-400" aria-hidden="true" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">{item.name}</dt>
+                        <dd>
+                          <div className="text-lg font-medium text-gray-900">{item.stat}</div>
+                        </dd>
+                      </dl>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="bg-gray-50 px-5 py-3">
-                <div className="text-sm">
-                  <span
-                    className={`font-medium ${
-                      item.changeType === 'increase'
-                        ? 'text-green-600'
-                        : item.changeType === 'decrease'
-                        ? 'text-red-600'
-                        : 'text-gray-600'
-                    }`}
-                  >
-                    {item.change}
-                  </span>
-                  <span className="text-gray-500"> from last week</span>
+                <div className="bg-gray-50 px-5 py-3">
+                  <div className="text-sm">
+                    <span
+                      className={`font-medium ${
+                        item.changeType === 'increase'
+                          ? 'text-green-600'
+                          : item.changeType === 'decrease'
+                          ? 'text-red-600'
+                          : 'text-gray-600'
+                      }`}
+                    >
+                      {item.change}
+                    </span>
+                    <span className="text-gray-500"> from last week</span>
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">{item.description}</div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -239,18 +121,21 @@ const Dashboard = () => {
                     <li key={appointment.id} className="py-4">
                       <div className="flex items-center space-x-4">
                         <div className="flex-shrink-0">
-                          {appointment.status === 'confirmed' ? (
-                            <CheckCircleIcon className="h-6 w-6 text-green-400" />
-                          ) : (
-                            <ExclamationTriangleIcon className="h-6 w-6 text-yellow-400" />
-                          )}
+                          <img
+                            className="h-10 w-10 rounded-full object-cover"
+                            src={appointment.patient.avatar}
+                            alt={appointment.patient.name}
+                          />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">
-                            {appointment.patient}
+                            {appointment.patient.name}
                           </p>
                           <p className="text-sm text-gray-500 truncate">
                             {appointment.type} • {appointment.time}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {appointment.location} • {appointment.duration} min
                           </p>
                         </div>
                         <div>
@@ -258,7 +143,11 @@ const Dashboard = () => {
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                               appointment.status === 'confirmed'
                                 ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
+                                : appointment.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : appointment.status === 'waiting'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-gray-100 text-gray-800'
                             }`}
                           >
                             {appointment.status}
@@ -291,20 +180,39 @@ const Dashboard = () => {
                   <li key={message.id} className="py-4">
                     <div className="flex items-center space-x-4">
                       <div className="flex-shrink-0">
-                        <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <ChatBubbleLeftRightIcon className="h-5 w-5 text-blue-600" />
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                          message.fromType === 'doctor' ? 'bg-blue-100' :
+                          message.fromType === 'patient' ? 'bg-green-100' :
+                          'bg-purple-100'
+                        }`}>
+                          <ChatBubbleLeftRightIcon className={`h-5 w-5 ${
+                            message.fromType === 'doctor' ? 'text-blue-600' :
+                            message.fromType === 'patient' ? 'text-green-600' :
+                            'text-purple-600'
+                          }`} />
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{message.from}</p>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-sm font-medium text-gray-900 truncate">{message.from}</p>
+                          {message.isUrgent && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              Urgent
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500 truncate">{message.subject}</p>
+                        <p className="text-xs text-gray-400 truncate">{message.preview}</p>
                         <p className="text-xs text-gray-400">{message.time}</p>
                       </div>
-                      {message.unread && (
-                        <div className="flex-shrink-0">
+                      <div className="flex flex-col items-end space-y-1">
+                        {message.unread && (
                           <div className="h-2 w-2 bg-blue-600 rounded-full"></div>
-                        </div>
-                      )}
+                        )}
+                        {message.hasAttachment && (
+                          <div className="text-gray-400">📎</div>
+                        )}
+                      </div>
                     </div>
                   </li>
                 ))}

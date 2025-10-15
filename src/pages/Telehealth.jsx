@@ -7,6 +7,11 @@ import VideoCall from '../components/VideoCall';
 import EmailInvitation from '../components/EmailInvitation';
 import InvitationTracker from '../components/InvitationTracker';
 import { initializeDemoData, generateSampleInvitations, clearSampleData } from '../utils/demoData';
+import { 
+  getTelehealthStats, 
+  getTodaysAppointments, 
+  getDashboardStats 
+} from '../utils/dashboardData';
 import {
   VideoCameraIcon,
   PhoneIcon,
@@ -90,65 +95,11 @@ const TelehealthDashboard = () => {
     }
   };
 
-  // Mock data for demonstration
+  // Load consistent appointment data
   useEffect(() => {
-    const mockAppointments = [
-      {
-        id: 1,
-        patient: {
-          name: 'Sarah Johnson',
-          age: 34,
-          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b372?w=100&h=100&fit=crop&crop=face',
-        },
-        doctor: {
-          name: 'Dr. Michael Chen',
-          specialty: 'Cardiology',
-          avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face',
-        },
-        time: '2:30 PM',
-        date: 'Today',
-        status: 'upcoming',
-        type: 'Follow-up Consultation',
-        duration: 30,
-      },
-      {
-        id: 2,
-        patient: {
-          name: 'James Wilson',
-          age: 45,
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
-        },
-        doctor: {
-          name: 'Dr. Emily Rodriguez',
-          specialty: 'Family Medicine',
-          avatar: 'https://images.unsplash.com/photo-1594824248441-6425c470cb9f?w=100&h=100&fit=crop&crop=face',
-        },
-        time: '3:15 PM',
-        date: 'Today',
-        status: 'waiting',
-        type: 'General Consultation',
-        duration: 45,
-      },
-      {
-        id: 3,
-        patient: {
-          name: 'Maria Garcia',
-          age: 28,
-          avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face',
-        },
-        doctor: {
-          name: 'Dr. Michael Chen',
-          specialty: 'Cardiology',
-          avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face',
-        },
-        time: '4:00 PM',
-        date: 'Today',
-        status: 'scheduled',
-        type: 'Initial Consultation',
-        duration: 60,
-      },
-    ];
-    setUpcomingAppointments(mockAppointments);
+    // Get appointments from shared data utility
+    const todaysAppointments = getTodaysAppointments();
+    setUpcomingAppointments(todaysAppointments);
   }, []);
 
   const startCall = (appointment) => {
@@ -359,65 +310,35 @@ const TelehealthDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <CalendarDaysIcon className="h-8 w-8 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Today's Appointments</p>
-                <p className="text-2xl font-semibold text-gray-900">8</p>
-              </div>
-            </div>
-          </div>
+          {getTelehealthStats().map((stat, index) => {
+            const iconColors = {
+              blue: 'text-blue-600',
+              green: 'text-green-600',
+              purple: 'text-purple-600',
+              orange: 'text-orange-600'
+            };
+            
+            const IconComponent = {
+              CalendarDaysIcon,
+              PaperAirplaneIcon,
+              EnvelopeIcon,
+              CheckCircleIcon
+            }[stat.icon] || CalendarDaysIcon;
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <PaperAirplaneIcon className="h-8 w-8 text-green-600" />
+            return (
+              <div key={stat.name} className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <IconComponent className={`h-8 w-8 ${iconColors[stat.color]}`} />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">{stat.name}</p>
+                    <p className="text-2xl font-semibold text-gray-900">{stat.stat}</p>
+                  </div>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">
-                  {isDoctor ? 'Sent Invitations' : 'Active Calls'}
-                </p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {isDoctor ? invitationStats.total : '2'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <EnvelopeIcon className="h-8 w-8 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">
-                  {isDoctor ? 'Pending Responses' : 'Waiting Patients'}
-                </p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {isDoctor ? invitationStats.pending : '3'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <CheckCircleIcon className="h-8 w-8 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">
-                  {isDoctor ? 'Today\'s Invitations' : 'Avg Call Duration'}
-                </p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {isDoctor ? invitationStats.todaysSent : '24m'}
-                </p>
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
 
         {/* Invitation Tracker - Full Width */}
@@ -486,6 +407,11 @@ const TelehealthDashboard = () => {
                             <span className="text-gray-300">•</span>
                             <p className="text-sm text-gray-500">{appointment.duration} min</p>
                           </div>
+                          {isDoctor && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              ID: {appointment.patient.id} • Age: {appointment.patient.age}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
@@ -498,6 +424,7 @@ const TelehealthDashboard = () => {
                               <EnvelopeIcon className="w-4 h-4 text-green-500" title="Email invitation sent" />
                             )}
                           </div>
+                          <p className="text-xs text-gray-500 mt-1">{appointment.location}</p>
                           <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(appointment.status)}`}>
                             {appointment.status}
                           </span>
