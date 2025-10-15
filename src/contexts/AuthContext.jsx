@@ -11,9 +11,29 @@ export const useAuth = () => {
   return context;
 };
 
+// API Configuration - Smart URL selection
+const getApiUrl = () => {
+  // Check for explicit environment variable first
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Auto-detect based on hostname
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:8000/api';
+  }
+  
+  // Default to production
+  return 'https://ehr-eezy-backend-production.up.railway.app/api';
+};
+
 // Configure axios defaults
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+axios.defaults.baseURL = getApiUrl();
 axios.defaults.withCredentials = false;
+
+// Log the API URL being used for debugging
+console.log('🔗 API URL:', axios.defaults.baseURL);
 
 // Add request interceptor to include auth token and ensure proper headers
 axios.interceptors.request.use(

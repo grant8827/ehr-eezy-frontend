@@ -1,8 +1,25 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+// API Configuration - Smart URL selection
+const getApiUrl = () => {
+  // Check for explicit environment variable first
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Auto-detect based on hostname
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:8000/api';
+  }
+  
+  // Default to production
+  return 'https://ehr-eezy-backend-production.up.railway.app/api';
+};
+
 // Configure axios defaults
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = getApiUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -11,6 +28,9 @@ const api = axios.create({
     'Accept': 'application/json',
   },
 });
+
+// Log the API URL being used for debugging
+console.log('🔗 API Service URL:', API_BASE_URL);
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
