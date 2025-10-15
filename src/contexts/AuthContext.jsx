@@ -12,7 +12,7 @@ export const useAuth = () => {
 };
 
 // Configure axios defaults
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'https://ehr-eezy-backend-production.up.railway.app';
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 axios.defaults.withCredentials = false;
 
 // Add request interceptor to include auth token and ensure proper headers
@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
         try {
           setUser(JSON.parse(savedUser));
           // Optionally verify token with backend
-          await axios.get('/api/auth/me');
+          await axios.get('/auth/me');
         } catch (error) {
           localStorage.removeItem('auth_token');
           localStorage.removeItem('user');
@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('/api/auth/login', {
+      const response = await axios.post('/auth/login', {
         email,
         password,
       });
@@ -101,7 +101,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post('/api/auth/register', userData);
+      const response = await axios.post('/auth/register', userData);
       
       const { token, user: newUser, business } = response.data;
       
@@ -124,7 +124,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await axios.post('/api/auth/logout');
+      await axios.post('/auth/logout');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
