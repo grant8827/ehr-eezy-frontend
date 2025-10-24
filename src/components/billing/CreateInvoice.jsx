@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { patients } from '../../utils/dashboardData';
+import React, { useState, useEffect } from 'react';
+import { patientService } from '../../services/patientService';
 import { insuranceProviders, cptCodes } from '../../utils/billingData';
 
 const CreateInvoice = ({ onClose }) => {
   const [step, setStep] = useState(1);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     patientId: '',
     invoiceDate: new Date().toISOString().split('T')[0],
@@ -13,6 +15,34 @@ const CreateInvoice = ({ onClose }) => {
     insuranceProvider: '',
     paymentTerms: '30'
   });
+
+  // Load patients from backend
+  useEffect(() => {
+    const loadPatients = async () => {
+      try {
+        setLoading(true);
+        const patientsData = await patientService.getAllPatients();
+        
+        // Transform for billing component
+        const transformedPatients = (patientsData || []).map(patient => ({
+          id: patient.id,
+          name: `${patient.first_name} ${patient.last_name}`,
+          email: patient.email,
+          phone: patient.phone,
+          status: 'active'
+        }));
+        
+        setPatients(transformedPatients);
+      } catch (error) {
+        console.error('Error loading patients for billing:', error);
+        setPatients([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPatients();
+  }, []);
 
   const [currentService, setCurrentService] = useState({
     cptCode: '',

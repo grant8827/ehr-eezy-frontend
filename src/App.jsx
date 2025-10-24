@@ -19,6 +19,7 @@ import TelehealthDashboard from './pages/TelehealthDashboard';
 import Profile from './pages/Profile';
 import Staff from './pages/Staff';
 import JoinConsultation from './pages/JoinConsultation';
+import PatientInvitations from './pages/PatientInvitations';
 function App() {
   return (
     <AuthProvider>
@@ -37,6 +38,13 @@ function App() {
             <Route path="/join/*" element={<JoinConsultation />} />
             <Route path="/app/telehealth/join" element={<JoinConsultation />} />
             
+            {/* Patient Portal (public access for patients) */}
+            <Route path="/patient-portal/*" element={
+              <ProtectedRoute allowPatients={true}>
+                <Layout />
+              </ProtectedRoute>
+            } />
+            
             {/* Protected routes */}
             <Route path="/app" element={
               <ProtectedRoute>
@@ -53,6 +61,7 @@ function App() {
               <Route path="telehealth/*" element={<TelehealthDashboard />} />
               <Route path="profile" element={<Profile />} />
               <Route path="staff/*" element={<Staff />} />
+              <Route path="patient-invitations" element={<PatientInvitations />} />
             </Route>
           </Routes>
         </div>

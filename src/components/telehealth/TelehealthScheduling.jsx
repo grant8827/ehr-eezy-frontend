@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { patientService } from '../../services/patientService';
+import { appointmentAPI, patientAPI, staffAPI } from '../../services/apiService';
+import toast from 'react-hot-toast';
 import {
   CalendarDaysIcon,
   ClockIcon,
@@ -24,7 +27,10 @@ const TelehealthScheduling = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('week'); // week, day, month
   const [showNewAppointment, setShowNewAppointment] = useState(false);
-  const [appointments, setAppointments] = useState([
+  const [appointments, setAppointments] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [mockAppointments] = useState([
     {
       id: 1,
       patientName: 'Sarah Johnson',
@@ -77,6 +83,81 @@ const TelehealthScheduling = () => {
       avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face'
     }
   ]);
+
+  // Load real appointments from backend
+  useEffect(() => {
+    const loadAppointments = async () => {
+      try {
+        setLoading(true);
+        
+        // Get all appointments from the API (same as main appointments page)
+        const response = await appointmentAPI.getAll({
+          per_page: 100 // Get more appointments for calendar view
+        });
+        
+        const appointmentsData = response.data.data || [];
+        
+        // Transform API appointments to match the component's expected format
+        const transformedAppointments = appointmentsData.map((appointment) => ({
+          id: appointment.id,
+          patientName: appointment.patient ? 
+            `${appointment.patient.first_name || ''} ${appointment.patient.last_name || ''}`.trim() : 
+            'Unknown Patient',
+          patientId: appointment.patient?.patient_id || `PAT-${appointment.id.toString().padStart(6, '0')}`,
+          date: appointment.appointment_date,
+          startTime: appointment.start_time || '09:00',
+          endTime: appointment.end_time || '10:00',
+          type: appointment.type || 'in-person',
+          status: appointment.status === 'scheduled' ? 'pending' : appointment.status,
+          reason: appointment.reason_for_visit || 'Consultation',
+          notes: appointment.notes || '',
+          phone: appointment.patient?.phone || 'No phone provided',
+          email: appointment.patient?.email || 'No email provided',
+          fee: appointment.fee || 150,
+          insuranceProvider: 'Insurance on file',
+          avatar: appointment.patient ? 
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(appointment.patient.first_name || 'P')}+${encodeURIComponent(appointment.patient.last_name || 'P')}&background=3B82F6&color=fff&size=100` :
+            'https://ui-avatars.com/api/?name=P+P&background=3B82F6&color=fff&size=100',
+          // Keep original appointment data for reference
+          originalAppointment: appointment
+        }));
+        
+        setAppointments(transformedAppointments);
+        
+        // Also load patients for new appointment creation
+        const patientsResponse = await patientAPI.getAll();
+        // Handle different response formats (same as PatientList component)
+        const patientsData = Array.isArray(patientsResponse.data) ? 
+          patientsResponse.data : 
+          (patientsResponse.data?.data ? patientsResponse.data.data : []);
+        console.log('Loaded patients:', patientsData); // Debug log
+        setPatients(patientsData);
+        
+      } catch (error) {
+        console.error('Error loading appointments or patients:', error);
+        toast.error('Failed to load appointments or patients');
+        setAppointments(mockAppointments); // Fallback to mock data
+        
+        // Try to load patients separately if appointments fail
+        try {
+          const patientsResponse = await patientAPI.getAll();
+          // Handle different response formats
+          const patientsData = Array.isArray(patientsResponse.data) ? 
+            patientsResponse.data : 
+            (patientsResponse.data?.data ? patientsResponse.data.data : []);
+          console.log('Loaded patients (fallback):', patientsData); // Debug log
+          setPatients(patientsData);
+        } catch (patientError) {
+          console.error('Error loading patients:', patientError);
+          toast.error('Failed to load patients');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAppointments();
+  }, []);
 
   const [newAppointment, setNewAppointment] = useState({
     patientName: '',
@@ -136,28 +217,145 @@ const TelehealthScheduling = () => {
     return dates;
   };
 
-  // Handle appointment creation
-  const handleCreateAppointment = (e) => {
+  // Handle appointment creation using real API
+  const handleCreateAppointment = async (e) => {
     e.preventDefault();
-    const appointment = {
-      id: Date.now(),
-      patientName: newAppointment.patientName,
-      patientId: newAppointment.patientId,
-      date: newAppointment.date,
-      startTime: newAppointment.startTime,
-      endTime: addMinutesToTime(newAppointment.startTime, newAppointment.duration),
-      type: newAppointment.type,
-      status: 'pending',
-      reason: newAppointment.reason,
-      notes: newAppointment.notes,
-      phone: newAppointment.phone,
-      email: newAppointment.email,
-      fee: newAppointment.fee,
-      insuranceProvider: newAppointment.insuranceProvider,
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'
-    };
+    
+    console.log('=== APPOINTMENT CREATION DEBUG ===');
+    console.log('Form state:', newAppointment);
+    console.log('Available patients:', patients);
+    
+    try {
+      // Safety check
+      if (!patients || patients.length === 0) {
+        console.error('No patients available');
+        toast.error('No patients available. Please add patients first.');
+        return;
+      }
 
-    setAppointments([...appointments, appointment]);
+      // Find the selected patient from the patients list
+      const selectedPatient = patients.find(p => 
+        p.id.toString() === newAppointment.patientId
+      );
+
+      console.log('Selected patient ID:', newAppointment.patientId);
+      console.log('Found patient:', selectedPatient);
+
+      if (!selectedPatient) {
+        console.error('Patient not found in patients list');
+        toast.error('Please select a valid patient');
+        return;
+      }
+
+      // Validate required fields
+      if (!newAppointment.date) {
+        toast.error('Please select a date');
+        return;
+      }
+      if (!newAppointment.startTime) {
+        toast.error('Please select a start time');
+        return;
+      }
+      if (!newAppointment.duration || newAppointment.duration < 15) {
+        toast.error('Duration must be at least 15 minutes');
+        return;
+      }
+
+      // Get a valid staff member - this is required by the backend validation
+      console.log('Fetching staff members for validation...');
+      const staffResponse = await staffAPI.getAll({ per_page: 1 });
+      console.log('Staff response:', staffResponse);
+      
+      if (!staffResponse.data || !staffResponse.data.data || staffResponse.data.data.length === 0) {
+        console.error('No staff members available');
+        toast.error('No staff members available. Please add staff members first.');
+        return;
+      }
+      
+      const staffId = staffResponse.data.data[0].id;
+      console.log('Using staff ID:', staffId);
+
+      const appointmentData = {
+        patient_id: parseInt(selectedPatient.id),
+        staff_id: parseInt(staffId),
+        appointment_date: newAppointment.date,
+        start_time: newAppointment.startTime,
+        end_time: addMinutesToTime(newAppointment.startTime, newAppointment.duration),
+        duration_minutes: parseInt(newAppointment.duration),
+        type: newAppointment.type,
+        reason_for_visit: newAppointment.reason || 'Telehealth consultation',
+        notes: newAppointment.notes || '',
+        fee: parseFloat(newAppointment.fee) || 150
+      };
+
+      console.log('Appointment data payload:', appointmentData);
+      console.log('Making API call to create appointment...');
+
+      const response = await appointmentAPI.create(appointmentData);
+      console.log('API Response:', response);
+      toast.success('Appointment created successfully');
+      
+      // Reload appointments to show the new one
+      const appointmentsResponse = await appointmentAPI.getAll({ per_page: 100 });
+      const appointmentsData = appointmentsResponse.data.data || [];
+      
+      const transformedAppointments = appointmentsData.map((appointment) => ({
+        id: appointment.id,
+        patientName: appointment.patient ? 
+          `${appointment.patient.first_name || ''} ${appointment.patient.last_name || ''}`.trim() : 
+          'Unknown Patient',
+        patientId: appointment.patient?.patient_id || `PAT-${appointment.id.toString().padStart(6, '0')}`,
+        date: appointment.appointment_date,
+        startTime: appointment.start_time || '09:00',
+        endTime: appointment.end_time || '10:00',
+        type: appointment.type || 'in-person',
+        status: appointment.status === 'scheduled' ? 'pending' : appointment.status,
+        reason: appointment.reason_for_visit || 'Consultation',
+        notes: appointment.notes || '',
+        phone: appointment.patient?.phone || 'No phone provided',
+        email: appointment.patient?.email || 'No email provided',
+        fee: appointment.fee || 150,
+        insuranceProvider: 'Insurance on file',
+        avatar: appointment.patient ? 
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(appointment.patient.first_name || 'P')}+${encodeURIComponent(appointment.patient.last_name || 'P')}&background=3B82F6&color=fff&size=100` :
+          'https://ui-avatars.com/api/?name=P+P&background=3B82F6&color=fff&size=100',
+        originalAppointment: appointment
+      }));
+      
+      setAppointments(transformedAppointments);
+      
+    } catch (error) {
+      console.error('=== APPOINTMENT CREATION ERROR ===');
+      console.error('Full error object:', error);
+      
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+        console.error('Response headers:', error.response.headers);
+        
+        // Show specific error message if available
+        if (error.response.data && error.response.data.message) {
+          toast.error(`Failed to create appointment: ${error.response.data.message}`);
+        } else if (error.response.data && error.response.data.errors) {
+          // Laravel validation errors
+          const firstError = Object.values(error.response.data.errors)[0][0];
+          toast.error(`Validation error: ${firstError}`);
+        } else {
+          toast.error(`Server error (${error.response.status}): Failed to create appointment`);
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request);
+        toast.error('Network error: Could not reach server');
+      } else {
+        // Something happened in setting up the request
+        console.error('Error message:', error.message);
+        toast.error(`Request error: ${error.message}`);
+      }
+    }
+
     setShowNewAppointment(false);
     setNewAppointment({
       patientName: '',
@@ -185,13 +383,22 @@ const TelehealthScheduling = () => {
     return `${newHours.toString().padStart(2, '0')}:${newMins.toString().padStart(2, '0')}`;
   };
 
-  // Update appointment status
-  const updateAppointmentStatus = (appointmentId, status) => {
-    setAppointments(prevAppointments =>
-      prevAppointments.map(apt =>
-        apt.id === appointmentId ? { ...apt, status } : apt
-      )
-    );
+  // Update appointment status using real API
+  const updateAppointmentStatus = async (appointmentId, status) => {
+    try {
+      await appointmentAPI.updateStatus(appointmentId, { status });
+      toast.success(`Appointment ${status} successfully`);
+      
+      // Update local state
+      setAppointments(prevAppointments =>
+        prevAppointments.map(apt =>
+          apt.id === appointmentId ? { ...apt, status } : apt
+        )
+      );
+    } catch (error) {
+      console.error('Error updating appointment status:', error);
+      toast.error('Failed to update appointment status');
+    }
   };
 
   // Get status color
@@ -479,7 +686,7 @@ const TelehealthScheduling = () => {
       {/* New Appointment Modal */}
       {showNewAppointment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto m-4">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-900">Schedule New Appointment</h2>
@@ -493,31 +700,66 @@ const TelehealthScheduling = () => {
             </div>
             
             <form onSubmit={handleCreateAppointment} className="p-6">
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Patient Name
+              
+              <div className="mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Patient *
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={newAppointment.patientName}
-                    onChange={(e) => setNewAppointment({...newAppointment, patientName: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  {patients && patients.length === 0 && !loading && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setLoading(true);
+                          const patientsResponse = await patientAPI.getAll();
+                          // Handle different response formats
+                          const patientsData = Array.isArray(patientsResponse.data) ? 
+                            patientsResponse.data : 
+                            (patientsResponse.data?.data ? patientsResponse.data.data : []);
+                          setPatients(patientsData);
+                          toast.success(`Loaded ${patientsData.length} patients`);
+                        } catch (error) {
+                          console.error('Error loading patients:', error);
+                          toast.error('Failed to load patients');
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-700"
+                    >
+                      Reload Patients
+                    </button>
+                  )}
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Patient ID
-                  </label>
-                  <input
-                    type="text"
-                    value={newAppointment.patientId}
-                    onChange={(e) => setNewAppointment({...newAppointment, patientId: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+                <select
+                  required
+                  value={newAppointment.patientId}
+                  onChange={(e) => {
+                    const selectedPatient = patients.find(p => p.id.toString() === e.target.value);
+                    setNewAppointment({
+                      ...newAppointment, 
+                      patientId: e.target.value,
+                      patientName: selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : '',
+                      phone: selectedPatient?.phone || '',
+                      email: selectedPatient?.email || ''
+                    });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select Patient</option>
+                  {patients && patients.length > 0 ? (
+                    patients.map(patient => (
+                      <option key={patient.id} value={patient.id}>
+                        {patient.first_name} {patient.last_name} - {patient.phone || 'No phone'}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>
+                      {loading ? 'Loading patients...' : 'No patients found'}
+                    </option>
+                  )}
+                </select>
               </div>
 
               <div className="grid grid-cols-3 gap-4 mb-4">
@@ -544,11 +786,16 @@ const TelehealthScheduling = () => {
                     onChange={(e) => setNewAppointment({...newAppointment, startTime: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    {availableSlots.filter(slot => slot.available).map(slot => (
-                      <option key={slot.time} value={slot.time}>
-                        {slot.displayTime}
-                      </option>
-                    ))}
+                    <option value="">Select Time</option>
+                    {availableSlots && availableSlots.length > 0 ? (
+                      availableSlots.filter(slot => slot.available).map(slot => (
+                        <option key={slot.time} value={slot.time}>
+                          {slot.displayTime}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" disabled>No available slots for this date</option>
+                    )}
                   </select>
                 </div>
                 

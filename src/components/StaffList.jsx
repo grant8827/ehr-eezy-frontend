@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PlusIcon, MagnifyingGlassIcon, EyeIcon, PencilIcon, TrashIcon, EnvelopeIcon, PhoneIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import StaffRegistrationForm from './StaffRegistrationForm';
 import { useAuth } from '../contexts/AuthContext';
+import { staffAPI } from '../services/apiService';
 
 const StaffList = () => {
   const { isAdmin } = useAuth();
@@ -30,7 +30,7 @@ const StaffList = () => {
 
   const fetchStaff = async () => {
     try {
-      const response = await axios.get('/api/staff');
+      const response = await staffAPI.getAll();
       
       const staffData = Array.isArray(response.data) ? response.data : 
                         (response.data.data ? response.data.data : []);
@@ -39,7 +39,17 @@ const StaffList = () => {
       calculateStats(staffData);
     } catch (error) {
       console.error('Error fetching staff:', error);
-      toast.error('Failed to fetch staff members');
+      
+      let errorMessage = 'Failed to fetch staff members';
+      if (error.response?.status === 404) {
+        errorMessage = 'Staff endpoint not found. Please ensure you are logged in as an administrator.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Authentication required. Please log in again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Access denied. Admin privileges required.';
+      }
+      
+      toast.error(errorMessage);
       setStaff([]);
     } finally {
       setLoading(false);
@@ -75,7 +85,7 @@ const StaffList = () => {
   const handleDeleteStaff = async (staffId) => {
     if (window.confirm('Are you sure you want to remove this staff member? This action cannot be undone.')) {
       try {
-        await axios.delete(`/api/staff/${staffId}`);
+        await staffAPI.delete(staffId);
         toast.success('Staff member removed successfully!');
         fetchStaff();
       } catch (error) {

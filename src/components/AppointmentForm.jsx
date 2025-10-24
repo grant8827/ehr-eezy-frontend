@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
 import toast from 'react-hot-toast';
+import { staffAPI, patientAPI, appointmentAPI } from '../services/apiService';
 import { 
   XMarkIcon,
   CalendarIcon,
@@ -103,7 +103,7 @@ const AppointmentForm = ({ isOpen, onClose, appointment, initialDate, onSuccess 
 
   const fetchPatients = async () => {
     try {
-      const response = await axios.get('/api/patients');
+      const response = await patientAPI.getAll();
       setPatients(response.data.data || []);
     } catch (error) {
       console.error('Error fetching patients:', error);
@@ -113,7 +113,7 @@ const AppointmentForm = ({ isOpen, onClose, appointment, initialDate, onSuccess 
 
   const fetchStaff = async () => {
     try {
-      const response = await axios.get('/api/staff');
+      const response = await staffAPI.getAll();
       setStaff(response.data.data || []);
     } catch (error) {
       console.error('Error fetching staff:', error);
@@ -131,13 +131,11 @@ const AppointmentForm = ({ isOpen, onClose, appointment, initialDate, onSuccess 
         exclude_appointment_id: appointment?.id
       });
       
-      const response = await axios.get(`/api/appointments/availability/check`, {
-        params: {
-          staff_id: formData.staff_id,
-          date: formData.appointment_date,
-          duration_minutes: parseInt(formData.duration_minutes),
-          exclude_appointment_id: appointment?.id
-        }
+      const response = await appointmentAPI.checkAvailability({
+        staff_id: formData.staff_id,
+        date: formData.appointment_date,
+        duration_minutes: parseInt(formData.duration_minutes),
+        exclude_appointment_id: appointment?.id
       });
       
       console.log('Availability response:', response.data);
@@ -226,10 +224,10 @@ const AppointmentForm = ({ isOpen, onClose, appointment, initialDate, onSuccess 
 
 
       if (appointment) {
-        await axios.put(`/api/appointments/${appointment.id}`, submitData);
+        await appointmentAPI.update(appointment.id, submitData);
         toast.success('Appointment updated successfully');
       } else {
-        await axios.post('/api/appointments', submitData);
+        await appointmentAPI.create(submitData);
         toast.success('Appointment scheduled successfully');
       }
       

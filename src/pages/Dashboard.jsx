@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  getFormattedStats, 
-  getTodaysAppointments, 
-  getRecentMessages 
-} from '../utils/dashboardData';
+import { useNavigate } from 'react-router-dom';
+import { patientService } from '../services/patientService';
+import dashboardService from '../services/dashboardService';
+import QuickPatientModal from '../components/modals/QuickPatientModal';
+import QuickPrescriptionModal from '../components/modals/QuickPrescriptionModal';
+import QuickReportModal from '../components/modals/QuickReportModal';
+import PatientDashboard from './PatientDashboard';
 import {
   UserGroupIcon,
   CalendarDaysIcon,
@@ -18,23 +20,84 @@ import {
 
 const Dashboard = () => {
   const { user, isDoctor, isPatient, isAdmin, isReceptionist, isNurse } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [realPatientCount, setRealPatientCount] = useState(0);
+  
+  // Modal states
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
-  // Get consistent data from shared utility
+  const [dashboardStats, setDashboardStats] = useState([]);
+  const [todaysAppointments, setTodaysAppointments] = useState([]);
+  const [recentMessages, setRecentMessages] = useState([]);
+
+  // Load dashboard data from backend
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        const userRole = getUserRole();
+        const userId = user?.id;
+
+        // Load dashboard stats
+        const stats = await dashboardService.getFormattedStats(userRole, userId);
+        setDashboardStats(stats);
+
+        // Load today's appointments
+        const appointments = await dashboardService.getTodaysAppointments(userId, userRole);
+        setTodaysAppointments(appointments);
+
+        // Load recent messages
+        const messages = dashboardService.getRecentMessages(5);
+        setRecentMessages(messages);
+
+        // Get real patient count for fallback
+        const patientsData = await patientService.getAllPatients();
+        setRealPatientCount(patientsData?.length || 0);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        setRealPatientCount(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, [user]);
+
+  // Get user role helper
   const getUserRole = () => {
     if (isDoctor) return 'doctor';
     if (isPatient) return 'patient';
     return 'admin'; // Default for admin/receptionist/nurse
   };
-
-  const dashboardStats = getFormattedStats(getUserRole());
-  const recentAppointments = getTodaysAppointments().slice(0, 3); // Show first 3
-  const recentMessages = getRecentMessages(3); // Show 3 most recent
+  
+  // Recent appointments are now loaded in useEffect as todaysAppointments
+  // Recent messages are now loaded in useEffect as recentMessages
 
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
+  };
+
+  // Quick action handlers
+  const handleCreatePatient = () => {
+    setShowPatientModal(true);
+  };
+
+  const handleSendPrescription = () => {
+    setShowPrescriptionModal(true);
+  };
+
+  const handleGenerateReport = () => {
+    setShowReportModal(true);
+  };
+
+  const handleScheduleAppointment = () => {
+    navigate('/app/appointments?create=true');
   };
 
   // Map icon names to actual icon components
@@ -49,6 +112,32 @@ const Dashboard = () => {
     };
     return iconMap[iconName] || CalendarDaysIcon;
   };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Debug role detection
+  console.log('🔍 Dashboard Role Debug:', {
+    user,
+    isPatient,
+    isDoctor,
+    isAdmin,
+    userRole: user?.role
+  });
+
+  // Show patient dashboard for patients
+  if (isPatient) {
+    console.log('✅ Showing PatientDashboard for patient');
+    return <PatientDashboard />;
+  }
 
   return (
     <div>
@@ -107,7 +196,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className={`mt-8 grid grid-cols-1 gap-8 ${isPatient ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
         {/* Recent Appointments */}
         {!isPatient && (
           <div className="bg-white shadow rounded-lg">
@@ -117,7 +206,7 @@ const Dashboard = () => {
               </h3>
               <div className="flow-root">
                 <ul className="-my-5 divide-y divide-gray-200">
-                  {recentAppointments.map((appointment) => (
+                  {todaysAppointments.slice(0, 3).map((appointment) => (
                     <li key={appointment.id} className="py-4">
                       <div className="flex items-center space-x-4">
                         <div className="flex-shrink-0">
@@ -229,6 +318,45 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Quick Actions for Doctors and Admins */}
+        {!isPatient && (
+          <div className="bg-white shadow rounded-lg">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Quick Actions</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <button 
+                  onClick={handleCreatePatient}
+                  className="flex items-center p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <UserGroupIcon className="h-6 w-6 text-blue-600 mr-3" />
+                  <span className="text-sm font-medium text-blue-900">Create New Patient Record</span>
+                </button>
+                <button 
+                  onClick={handleSendPrescription}
+                  className="flex items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                >
+                  <DocumentTextIcon className="h-6 w-6 text-green-600 mr-3" />
+                  <span className="text-sm font-medium text-green-900">Send Prescription</span>
+                </button>
+                <button 
+                  onClick={handleGenerateReport}
+                  className="flex items-center p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+                >
+                  <CurrencyDollarIcon className="h-6 w-6 text-purple-600 mr-3" />
+                  <span className="text-sm font-medium text-purple-900">Generate Report</span>
+                </button>
+                <button 
+                  onClick={handleScheduleAppointment}
+                  className="flex items-center p-3 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                >
+                  <CalendarDaysIcon className="h-6 w-6 text-indigo-600 mr-3" />
+                  <span className="text-sm font-medium text-indigo-900">Schedule Appointment</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Quick Actions for Patients */}
         {isPatient && (
           <div className="bg-white shadow rounded-lg">
@@ -262,6 +390,32 @@ const Dashboard = () => {
           </p>
         </div>
       )}
+
+      {/* Quick Action Modals */}
+      <QuickPatientModal
+        isOpen={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        onSuccess={() => {
+          // Refresh patient count or show success message
+          console.log('Patient created successfully');
+        }}
+      />
+
+      <QuickPrescriptionModal
+        isOpen={showPrescriptionModal}
+        onClose={() => setShowPrescriptionModal(false)}
+        onSuccess={() => {
+          console.log('Prescription sent successfully');
+        }}
+      />
+
+      <QuickReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSuccess={() => {
+          console.log('Report generated successfully');
+        }}
+      />
     </div>
   );
 };

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import TelehealthScheduling from '../components/TelehealthScheduling';
 import TelehealthMessaging from '../components/TelehealthMessaging';
 import VideoCall from '../components/VideoCall';
 import EmailInvitation from '../components/EmailInvitation';
 import InvitationTracker from '../components/InvitationTracker';
+import QuickPatientModal from '../components/modals/QuickPatientModal';
+import QuickPrescriptionModal from '../components/modals/QuickPrescriptionModal';
+import QuickReportModal from '../components/modals/QuickReportModal';
 import { initializeDemoData, generateSampleInvitations, clearSampleData } from '../utils/demoData';
 import { 
   getTelehealthStats, 
@@ -19,6 +22,8 @@ import {
   CalendarDaysIcon,
   ClockIcon,
   UserGroupIcon,
+  DocumentTextIcon,
+  CurrencyDollarIcon,
   SignalIcon,
   CameraIcon,
   MicrophoneIcon,
@@ -38,9 +43,16 @@ import {
 
 const TelehealthDashboard = () => {
   const { user, isDoctor, isPatient } = useAuth();
+  const navigate = useNavigate();
   
   // Debug authentication status
   console.log('TelehealthDashboard - Auth Status:', { user, isDoctor, isPatient });
+  
+  // Modal states for Quick Actions
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [showQuickPatientModal, setShowQuickPatientModal] = useState(false);
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   
   const [activeCall, setActiveCall] = useState(null);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
@@ -170,6 +182,29 @@ const TelehealthDashboard = () => {
     }, 500);
   };
 
+  // Quick action handlers
+  const handleCreatePatient = () => {
+    setShowQuickPatientModal(true);
+  };
+
+  const handleSendPrescription = () => {
+    setShowPrescriptionModal(true);
+  };
+
+  const handleGenerateReport = () => {
+    setShowReportModal(true);
+  };
+
+  const handleScheduleAppointment = () => {
+    navigate('/app/appointments?create=true');
+  };
+
+  const handleQuickPatientSuccess = (patient) => {
+    setShowQuickPatientModal(false);
+    // Could add success notification or refresh data here
+    console.log('Patient created/updated successfully:', patient);
+  };
+
   if (activeCall) {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col">
@@ -273,7 +308,7 @@ const TelehealthDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Telehealth</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Healthcare Platform</h1>
               <p className="mt-1 text-sm text-gray-500">
                 {isDoctor ? 'Manage virtual consultations' : 'Join your appointments'}
               </p>
@@ -340,6 +375,45 @@ const TelehealthDashboard = () => {
             );
           })}
         </div>
+
+        {/* Quick Actions for Healthcare Providers */}
+        {!isPatient && (
+          <div className="mb-8">
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Quick Actions</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <button 
+                  onClick={handleCreatePatient}
+                  className="flex items-center p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <UserGroupIcon className="h-6 w-6 text-blue-600 mr-3" />
+                  <span className="text-sm font-medium text-blue-900">Create New Patient Record</span>
+                </button>
+                <button 
+                  onClick={handleSendPrescription}
+                  className="flex items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                >
+                  <DocumentTextIcon className="h-6 w-6 text-green-600 mr-3" />
+                  <span className="text-sm font-medium text-green-900">Send Prescription</span>
+                </button>
+                <button 
+                  onClick={handleGenerateReport}
+                  className="flex items-center p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+                >
+                  <CurrencyDollarIcon className="h-6 w-6 text-purple-600 mr-3" />
+                  <span className="text-sm font-medium text-purple-900">Generate Report</span>
+                </button>
+                <button 
+                  onClick={handleScheduleAppointment}
+                  className="flex items-center p-3 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                >
+                  <CalendarDaysIcon className="h-6 w-6 text-indigo-600 mr-3" />
+                  <span className="text-sm font-medium text-indigo-900">Schedule Appointment</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Invitation Tracker - Full Width */}
         {isDoctor && (
@@ -616,6 +690,25 @@ const TelehealthDashboard = () => {
         }}
         patientData={selectedPatientForEmail}
         onSent={handleEmailInvitationSent}
+      />
+
+      {/* Quick Actions Modals */}
+      <QuickPatientModal
+        isOpen={showQuickPatientModal}
+        onClose={() => setShowQuickPatientModal(false)}
+        onSuccess={handleQuickPatientSuccess}
+      />
+
+      <QuickPrescriptionModal
+        isOpen={showQuickPrescriptionModal}
+        onClose={() => setShowQuickPrescriptionModal(false)}
+        onSuccess={handleQuickPrescriptionSuccess}
+      />
+
+      <QuickReportModal
+        isOpen={showQuickReportModal}
+        onClose={() => setShowQuickReportModal(false)}
+        onSuccess={handleQuickReportSuccess}
       />
     </div>
   );

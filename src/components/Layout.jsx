@@ -9,11 +9,13 @@ import {
   CurrencyDollarIcon,
   ChatBubbleLeftRightIcon,
   VideoCameraIcon,
+  HeartIcon,
   UserCircleIcon,
   Bars3Icon,
   XMarkIcon,
   BellIcon,
   UsersIcon,
+  EnvelopeIcon,
 } from '@heroicons/react/24/outline';
 
 const Layout = () => {
@@ -25,11 +27,12 @@ const Layout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/app/dashboard', icon: HomeIcon },
     { name: 'Patients', href: '/app/patients', icon: UserGroupIcon },
+    { name: 'Patient Invitations', href: '/app/patient-invitations', icon: EnvelopeIcon },
     { name: 'Appointments', href: '/app/appointments', icon: CalendarDaysIcon },
     { name: 'Medical Records', href: '/app/medical-records', icon: DocumentTextIcon },
     { name: 'Billing', href: '/app/billing', icon: CurrencyDollarIcon },
     { name: 'Messages', href: '/app/messages', icon: ChatBubbleLeftRightIcon },
-    { name: 'Telehealth', href: '/app/telehealth', icon: VideoCameraIcon },
+    { name: 'Healthcare Platform', href: '/app/telehealth', icon: HeartIcon },
     // Admin-only navigation
     ...(isAdmin ? [{ name: 'Staff Management', href: '/app/staff', icon: UsersIcon }] : []),
   ];

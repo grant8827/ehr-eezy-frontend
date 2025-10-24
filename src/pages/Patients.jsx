@@ -2,11 +2,13 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import PatientList from '../components/PatientList';
 import PatientProfile from '../components/PatientProfile';
+import InvitationManagement from '../components/InvitationManagement';
 
 const Patients = () => {
   return (
     <Routes>
       <Route index element={<PatientList />} />
+      <Route path="invitations" element={<InvitationManagement />} />
       <Route path=":id" element={<PatientProfile />} />
     </Routes>
   );

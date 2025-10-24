@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { patientService } from '../../services/patientService';
+import { appointmentAPI } from '../../services/apiService';
 import {
   UserGroupIcon,
   ClockIcon,
@@ -18,76 +20,113 @@ import {
 } from '@heroicons/react/24/outline';
 
 const PatientQueue = () => {
-  const [patients, setPatients] = useState([
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      patientId: 'PAT-001',
-      appointmentTime: '2:00 PM',
-      waitTime: 15,
-      status: 'waiting', // waiting, called, in-consultation, completed
-      priority: 'normal', // normal, urgent, emergency
-      reason: 'Follow-up consultation',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612c000?w=100&h=100&fit=crop&crop=face',
-      lastVisit: '2025-09-15',
-      age: 34,
-      phone: '+1 (555) 123-4567',
-      notes: 'Patient has been experiencing mild symptoms'
-    },
-    {
-      id: 2,
-      name: 'Michael Chen',
-      patientId: 'PAT-002',
-      appointmentTime: '2:15 PM',
-      waitTime: 8,
-      status: 'waiting',
-      priority: 'urgent',
-      reason: 'Urgent care consultation',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
-      lastVisit: '2025-10-01',
-      age: 42,
-      phone: '+1 (555) 987-6543',
-      notes: 'Requires immediate attention for chest pain'
-    },
-    {
-      id: 3,
-      name: 'Emily Rodriguez',
-      patientId: 'PAT-003',
-      appointmentTime: '2:30 PM',
-      waitTime: 5,
-      status: 'called',
-      priority: 'normal',
-      reason: 'Medication review',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face',
-      lastVisit: '2025-09-20',
-      age: 28,
-      phone: '+1 (555) 456-7890',
-      notes: 'Regular medication check-up'
-    },
-    {
-      id: 4,
-      name: 'David Thompson',
-      patientId: 'PAT-004',
-      appointmentTime: '2:45 PM',
-      waitTime: 0,
-      status: 'waiting',
-      priority: 'normal',
-      reason: 'General consultation',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face',
-      lastVisit: '2025-08-30',
-      age: 55,
-      phone: '+1 (555) 234-5678',
-      notes: 'New patient consultation'
-    }
-  ]);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [waitingPatients, setWaitingPatients] = useState([]);
 
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [queueFilter, setQueueFilter] = useState('all'); // all, waiting, called, urgent
 
+  // Load scheduled patients for telehealth queue
+  useEffect(() => {
+    const loadScheduledPatients = async () => {
+      try {
+        setLoading(true);
+        
+        // Get today's appointments - ALL appointments regardless of status
+        const today = new Date().toISOString().split('T')[0];
+        const appointmentsResponse = await appointmentAPI.getAll({
+          date: today
+          // Removed status filter to show ALL appointments
+        });
+        
+        const appointmentsData = Array.isArray(appointmentsResponse.data) 
+          ? appointmentsResponse.data 
+          : (appointmentsResponse.data?.data || []);
+        
+        // Transform ALL appointments into telehealth queue format
+        const queuePatients = appointmentsData.map((appointment) => {
+          const patient = appointment.patient || {};
+          const appointmentTime = appointment.start_time || appointment.appointment_time;
+          const appointmentDate = new Date(appointment.appointment_date + ' ' + appointmentTime);
+          const now = new Date();
+          const waitTime = Math.max(0, Math.floor((now - appointmentDate) / (1000 * 60))); // Wait time in minutes
+          
+          // Map appointment status to queue status
+          let queueStatus = 'waiting';
+          switch (appointment.status) {
+            case 'completed':
+              queueStatus = 'completed';
+              break;
+            case 'cancelled':
+              queueStatus = 'cancelled';
+              break;
+            case 'confirmed':
+            case 'scheduled':
+              queueStatus = 'waiting';
+              break;
+            case 'in_progress':
+              queueStatus = 'in-consultation';
+              break;
+            default:
+              queueStatus = 'waiting';
+          }
+          
+          return {
+            id: patient.id || appointment.id,
+            appointmentId: appointment.id,
+            name: `${patient.first_name || ''} ${patient.last_name || ''}`.trim() || 'Unknown Patient',
+            patientId: patient.patient_id || `PAT-${(patient.id || appointment.id).toString().padStart(6, '0')}`,
+            appointmentTime: appointmentTime || 'Time TBD',
+            appointmentDate: appointment.appointment_date || today,
+            waitTime: waitTime,
+            status: queueStatus,
+            appointmentStatus: appointment.status, // Keep original appointment status
+            priority: appointment.priority || 'normal',
+            reason: appointment.reason_for_visit || appointment.appointment_type || 'Consultation',
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(patient.first_name || 'P')}+${encodeURIComponent(patient.last_name || 'P')}&background=3B82F6&color=fff&size=100`,
+            lastVisit: patient.updated_at ? new Date(patient.updated_at).toISOString().split('T')[0] : null,
+            age: patient.date_of_birth ? patientService.calculateAge(patient.date_of_birth) : 'Unknown',
+            phone: patient.phone || 'No phone provided',
+            email: patient.email || 'No email provided',
+            address: patientService.formatPatientAddress(patient),
+            notes: appointment.notes || `${appointment.status} appointment for ${appointment.reason_for_visit || 'consultation'}`,
+            // Include original appointment and patient data for reference
+            originalAppointment: appointment,
+            originalPatient: patient
+          };
+        });
+        
+        // Sort by appointment time
+        queuePatients.sort((a, b) => {
+          const timeA = new Date(`2000-01-01 ${a.appointmentTime}`);
+          const timeB = new Date(`2000-01-01 ${b.appointmentTime}`);
+          return timeA - timeB;
+        });
+        
+        setWaitingPatients(queuePatients);
+        setPatients(queuePatients);
+      } catch (error) {
+        console.error('Error loading scheduled patients for telehealth queue:', error);
+        // If appointments API fails, show empty state
+        setWaitingPatients([]);
+        setPatients([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadScheduledPatients();
+    
+    // Refresh every 5 minutes to keep the queue updated
+    const interval = setInterval(loadScheduledPatients, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Update wait times every minute
   useEffect(() => {
     const timer = setInterval(() => {
-      setPatients(prevPatients =>
+      setWaitingPatients(prevPatients =>
         prevPatients.map(patient => ({
           ...patient,
           waitTime: patient.status === 'waiting' ? patient.waitTime + 1 : patient.waitTime
@@ -99,7 +138,7 @@ const PatientQueue = () => {
   }, []);
 
   // Filter patients based on selected filter
-  const filteredPatients = patients.filter(patient => {
+  const filteredPatients = waitingPatients.filter(patient => {
     switch (queueFilter) {
       case 'waiting':
         return patient.status === 'waiting';
@@ -107,14 +146,20 @@ const PatientQueue = () => {
         return patient.status === 'called';
       case 'urgent':
         return patient.priority === 'urgent' || patient.priority === 'emergency';
+      case 'in-consultation':
+        return patient.status === 'in-consultation';
+      case 'completed':
+        return patient.status === 'completed';
+      case 'cancelled':
+        return patient.status === 'cancelled';
       default:
-        return true;
+        return true; // Show all appointments
     }
   });
 
   // Update patient status
   const updatePatientStatus = (patientId, newStatus) => {
-    setPatients(prevPatients =>
+    setWaitingPatients(prevPatients =>
       prevPatients.map(patient =>
         patient.id === patientId ? { ...patient, status: newStatus } : patient
       )
@@ -151,6 +196,8 @@ const PatientQueue = () => {
         return 'bg-green-100 text-green-800';
       case 'completed':
         return 'bg-gray-100 text-gray-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -158,15 +205,28 @@ const PatientQueue = () => {
 
   // Queue statistics
   const queueStats = {
-    total: patients.length,
-    waiting: patients.filter(p => p.status === 'waiting').length,
-    inConsultation: patients.filter(p => p.status === 'in-consultation').length,
+    total: waitingPatients.length,
+    waiting: waitingPatients.filter(p => p.status === 'waiting').length,
+    inConsultation: waitingPatients.filter(p => p.status === 'in-consultation').length,
+    completed: waitingPatients.filter(p => p.status === 'completed').length,
+    cancelled: waitingPatients.filter(p => p.status === 'cancelled').length,
     avgWaitTime: Math.round(
-      patients.filter(p => p.status === 'waiting').reduce((acc, p) => acc + p.waitTime, 0) /
-      patients.filter(p => p.status === 'waiting').length || 0
+      waitingPatients.filter(p => p.status === 'waiting').reduce((acc, p) => acc + p.waitTime, 0) /
+      waitingPatients.filter(p => p.status === 'waiting').length || 0
     ),
-    urgent: patients.filter(p => p.priority === 'urgent' || p.priority === 'emergency').length
+    urgent: waitingPatients.filter(p => p.priority === 'urgent' || p.priority === 'emergency').length
   };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading patient queue...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -177,11 +237,11 @@ const PatientQueue = () => {
       </div>
 
       {/* Queue Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Patients</p>
+              <p className="text-sm text-gray-600">Total</p>
               <p className="text-2xl font-bold text-gray-900">{queueStats.total}</p>
             </div>
             <UserGroupIcon className="w-8 h-8 text-blue-500" />
@@ -201,10 +261,20 @@ const PatientQueue = () => {
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">In Consultation</p>
+              <p className="text-sm text-gray-600">In Progress</p>
               <p className="text-2xl font-bold text-green-600">{queueStats.inConsultation}</p>
             </div>
             <VideoCameraIcon className="w-8 h-8 text-green-500" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Completed</p>
+              <p className="text-2xl font-bold text-gray-600">{queueStats.completed}</p>
+            </div>
+            <CheckCircleIcon className="w-8 h-8 text-gray-500" />
           </div>
         </div>
 
@@ -221,7 +291,7 @@ const PatientQueue = () => {
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Avg Wait Time</p>
+              <p className="text-sm text-gray-600">Avg Wait</p>
               <p className="text-2xl font-bold text-purple-600">{queueStats.avgWaitTime}m</p>
             </div>
             <ClockIcon className="w-8 h-8 text-purple-500" />
@@ -230,7 +300,7 @@ const PatientQueue = () => {
       </div>
 
       {/* Filter Buttons */}
-      <div className="flex space-x-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-6">
         <button
           onClick={() => setQueueFilter('all')}
           className={`px-4 py-2 rounded-lg text-sm font-medium ${
@@ -239,7 +309,7 @@ const PatientQueue = () => {
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
-          All Patients ({patients.length})
+          All Appointments ({waitingPatients.length})
         </button>
         <button
           onClick={() => setQueueFilter('waiting')}
@@ -252,6 +322,26 @@ const PatientQueue = () => {
           Waiting ({queueStats.waiting})
         </button>
         <button
+          onClick={() => setQueueFilter('in-consultation')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium ${
+            queueFilter === 'in-consultation'
+              ? 'bg-green-600 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          In Consultation ({queueStats.inConsultation})
+        </button>
+        <button
+          onClick={() => setQueueFilter('completed')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium ${
+            queueFilter === 'completed'
+              ? 'bg-gray-600 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Completed ({queueStats.completed})
+        </button>
+        <button
           onClick={() => setQueueFilter('urgent')}
           className={`px-4 py-2 rounded-lg text-sm font-medium ${
             queueFilter === 'urgent'
@@ -260,6 +350,16 @@ const PatientQueue = () => {
           }`}
         >
           Urgent ({queueStats.urgent})
+        </button>
+        <button
+          onClick={() => setQueueFilter('cancelled')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium ${
+            queueFilter === 'cancelled'
+              ? 'bg-red-600 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Cancelled ({queueStats.cancelled})
         </button>
       </div>
 
@@ -366,8 +466,13 @@ const PatientQueue = () => {
         {filteredPatients.length === 0 && (
           <div className="text-center py-12">
             <UserGroupIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No patients in queue</h3>
-            <p className="text-gray-600">All patients have been seen or there are no scheduled appointments.</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No appointments found</h3>
+            <p className="text-gray-600">
+              {queueFilter === 'all' 
+                ? 'No appointments scheduled for today.' 
+                : `No appointments found with status: ${queueFilter.replace('-', ' ')}.`
+              }
+            </p>
           </div>
         )}
       </div>

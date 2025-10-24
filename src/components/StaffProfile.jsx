@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeftIcon, PencilIcon, EnvelopeIcon, PhoneIcon, MapPinIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import StaffRegistrationForm from './StaffRegistrationForm';
+import { staffAPI } from '../services/apiService';
 
 const StaffProfile = () => {
   const { id } = useParams();
@@ -17,7 +17,7 @@ const StaffProfile = () => {
 
   const fetchStaff = async () => {
     try {
-      const response = await axios.get(`/api/staff/${id}`);
+      const response = await staffAPI.getById(id);
       setStaff(response.data);
     } catch (error) {
       console.error('Error fetching staff:', error);

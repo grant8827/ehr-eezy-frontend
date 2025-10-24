@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { patients } from '../utils/dashboardData';
+import { patientService } from '../services/patientService';
 import { getPatientMedicalRecords, getMedicalRecordsSummary } from '../utils/medicalRecordsData';
 import PatientHistory from '../components/PatientHistory';
 import LabResults from '../components/LabResults';
@@ -8,6 +8,7 @@ import Prescriptions from '../components/Prescriptions';
 import VitalSigns from '../components/VitalSigns';
 import Documents from '../components/Documents';
 import AddVisit from '../components/AddVisit';
+import QuickPatientModal from '../components/modals/QuickPatientModal';
 import {
   MagnifyingGlassIcon,
   UserIcon,
@@ -22,7 +23,8 @@ import {
   ClockIcon,
   ArrowUpTrayIcon,
   PlusIcon,
-  CalendarDaysIcon
+  CalendarDaysIcon,
+  UserPlusIcon
 } from '@heroicons/react/24/outline';
 
 const MedicalRecords = () => {
@@ -33,11 +35,48 @@ const MedicalRecords = () => {
   const [medicalRecords, setMedicalRecords] = useState(null);
   const [summary, setSummary] = useState(null);
   const [showAddVisit, setShowAddVisit] = useState(false);
+  const [showQuickPatientModal, setShowQuickPatientModal] = useState(false);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load patients from backend API
+  useEffect(() => {
+    const loadPatients = async () => {
+      try {
+        setLoading(true);
+        const patientsData = await patientService.getAllPatients();
+        
+        // Transform backend patients to match expected format
+        const transformedPatients = (patientsData || []).map(patient => ({
+          id: patient.id,
+          name: `${patient.first_name} ${patient.last_name}`,
+          age: patient.age || Math.floor(Math.random() * 50) + 20,
+          email: patient.email,
+          phone: patient.phone || '+1 (555) 123-4567',
+          avatar: `https://images.unsplash.com/photo-${1494790108755 + patient.id}?w=100&h=100&fit=crop&crop=face`,
+          status: 'active',
+          lastVisit: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
+          nextAppointment: new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000),
+          medicalConditions: ['General Health'],
+          preferredContactMethod: 'email'
+        }));
+        
+        setPatients(transformedPatients);
+      } catch (error) {
+        console.error('Error loading patients:', error);
+        setPatients([]); // Set empty array on error
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPatients();
+  }, []);
 
   // Load summary statistics
   useEffect(() => {
     setSummary(getMedicalRecordsSummary());
-  }, []);
+  }, [patients]);
 
   // Load patient medical records when patient is selected
   useEffect(() => {
@@ -49,18 +88,25 @@ const MedicalRecords = () => {
 
   // Auto-select patient if logged in as patient
   useEffect(() => {
-    if (isPatient && user) {
-      // Find patient record based on user info
-      const patientRecord = patients[0]; // For demo, use first patient
+    if (isPatient && user && patients.length > 0) {
+      // Find patient record based on user email or use first patient
+      const patientRecord = patients.find(p => p.email === user.email) || patients[0];
       setSelectedPatient(patientRecord);
     }
-  }, [isPatient, user]);
+  }, [isPatient, user, patients]);
 
   // Filter patients based on search
   const filteredPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     patient.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Handle patient creation success
+  const handlePatientCreationSuccess = (newPatient) => {
+    // Refresh patients list
+    loadPatients();
+    // The navigation to patient details will be handled by the modal
+  };
 
   // Handle adding a new visit
   const handleAddVisit = (newVisitData) => {
@@ -306,14 +352,40 @@ const MedicalRecords = () => {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading medical records...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Medical Records</h1>
-        <p className="text-gray-600">
-          {isPatient ? 'Your complete medical history and records' : 'Comprehensive patient medical records management'}
-        </p>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Medical Records</h1>
+            <p className="text-gray-600">
+              {isPatient ? 'Your complete medical history and records' : 'Comprehensive patient medical records management'}
+            </p>
+          </div>
+          
+          {/* Create New Patient Record Button (for providers only) */}
+          {!isPatient && (
+            <button
+              onClick={() => setShowQuickPatientModal(true)}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              <UserPlusIcon className="w-5 h-5 mr-2" />
+              Create New Patient Record
+            </button>
+          )}
+        </div>
         
         {/* Summary Stats for Providers */}
         {!isPatient && summary && (
@@ -511,6 +583,13 @@ const MedicalRecords = () => {
         onSave={handleAddVisit}
         patientId={selectedPatient?.id}
         patientName={selectedPatient?.name}
+      />
+
+      {/* Quick Patient Modal */}
+      <QuickPatientModal
+        isOpen={showQuickPatientModal}
+        onClose={() => setShowQuickPatientModal(false)}
+        onSuccess={handlePatientCreationSuccess}
       />
     </div>
   );

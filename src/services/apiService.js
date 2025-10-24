@@ -73,6 +73,13 @@ export const authAPI = {
   logout: () => api.post('/auth/logout'),
   getUser: () => api.get('/auth/me'),
   refresh: () => api.post('/auth/refresh'),
+  updateProfile: (data) => api.put('/auth/profile', data),
+  changePassword: (data) => api.put('/auth/password', data),
+  uploadProfilePicture: (formData) => api.post('/auth/profile-picture', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  updateNotificationPreferences: (data) => api.put('/auth/notifications', data),
+  deactivateAccount: (data) => api.post('/auth/deactivate', data),
 };
 
 // Patient API
@@ -122,6 +129,61 @@ export const medicalRecordsAPI = {
   create: (data) => api.post('/medical-records', data),
   update: (id, data) => api.put(`/medical-records/${id}`, data),
   delete: (id) => api.delete(`/medical-records/${id}`),
+  getStats: (patientId) => api.get(`/medical-records/stats${patientId ? `?patient_id=${patientId}` : ''}`),
+};
+
+// Vital Signs API
+export const vitalSignsAPI = {
+  getAll: (params = {}) => api.get('/vital-signs', { params }),
+  getById: (id) => api.get(`/vital-signs/${id}`),
+  getByPatient: (patientId, params = {}) => api.get(`/patients/${patientId}/vital-signs`, { params }),
+  create: (data) => api.post('/vital-signs', data),
+  update: (id, data) => api.put(`/vital-signs/${id}`, data),
+  delete: (id) => api.delete(`/vital-signs/${id}`),
+  getLatest: (patientId) => api.get(`/patients/${patientId}/vital-signs/latest`),
+  getTrends: (patientId, params = {}) => api.get(`/patients/${patientId}/vital-signs/trends`, { params }),
+};
+
+// Lab Results API
+export const labResultsAPI = {
+  getAll: (params = {}) => api.get('/lab-results', { params }),
+  getById: (id) => api.get(`/lab-results/${id}`),
+  getByPatient: (patientId, params = {}) => api.get(`/patients/${patientId}/lab-results`, { params }),
+  create: (data) => api.post('/lab-results', data),
+  update: (id, data) => api.put(`/lab-results/${id}`, data),
+  delete: (id) => api.delete(`/lab-results/${id}`),
+  getByCategory: (category, params = {}) => api.get(`/lab-results/category/${category}`, { params }),
+  getAbnormal: (params = {}) => api.get('/lab-results/abnormal', { params }),
+};
+
+// Prescriptions API
+export const prescriptionsAPI = {
+  getAll: (params = {}) => api.get('/prescriptions', { params }),
+  getById: (id) => api.get(`/prescriptions/${id}`),
+  getByPatient: (patientId, params = {}) => api.get(`/patients/${patientId}/prescriptions`, { params }),
+  create: (data) => api.post('/prescriptions', data),
+  update: (id, data) => api.put(`/prescriptions/${id}`, data),
+  delete: (id) => api.delete(`/prescriptions/${id}`),
+  updateStatus: (id, status) => api.patch(`/prescriptions/${id}/status`, { status }),
+  getActive: (params = {}) => api.get('/prescriptions/active', { params }),
+  getExpiring: (params = {}) => api.get('/prescriptions/expiring', { params }),
+  refill: (id, data = {}) => api.post(`/prescriptions/${id}/refill`, data),
+};
+
+// Medical Documents API
+export const medicalDocumentsAPI = {
+  getAll: (params = {}) => api.get('/medical-documents', { params }),
+  getById: (id) => api.get(`/medical-documents/${id}`),
+  getByPatient: (patientId, params = {}) => api.get(`/patients/${patientId}/documents`, { params }),
+  create: (formData) => api.post('/medical-documents', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  update: (id, data) => api.put(`/medical-documents/${id}`, data),
+  delete: (id) => api.delete(`/medical-documents/${id}`),
+  download: (id) => api.get(`/medical-documents/${id}/download`, { 
+    responseType: 'blob' 
+  }),
+  getMetadata: () => api.get('/medical-documents/metadata'),
 };
 
 // Billing API

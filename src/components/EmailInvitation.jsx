@@ -1,3 +1,15 @@
+/*
+ * EmailInvitation Component
+ * 
+ * NOTE: This component currently uses mock implementations for demonstration purposes.
+ * The sendEmail function uses localStorage instead of making API calls.
+ * 
+ * To switch to production API:
+ * 1. Replace the mock sendEmail implementation with actual fetch call to `/api/emails/patient-invitation`
+ * 2. Ensure proper authentication headers are included
+ * 3. Handle API responses and errors appropriately
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   PaperAirplaneIcon,
@@ -12,7 +24,9 @@ import {
   LinkIcon,
   XMarkIcon,
   DocumentDuplicateIcon,
-  ShareIcon
+  ShareIcon,
+  MagnifyingGlassIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import { 
   generateMeetingLink, 
@@ -20,9 +34,11 @@ import {
   storeMeetingData, 
   formatMeetingTime 
 } from '../utils/consultationUtils';
+import { patientService } from '../services/patientService';
 
 const EmailInvitation = ({ isOpen, onClose, patientData = null, onSent }) => {
   const [formData, setFormData] = useState({
+    patientId: '',
     patientName: '',
     patientEmail: '',
     patientPhone: '',
@@ -33,6 +49,13 @@ const EmailInvitation = ({ isOpen, onClose, patientData = null, onSent }) => {
     notes: ''
   });
   
+  // Patient selection states
+  const [patients, setPatients] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [loadingPatients, setLoadingPatients] = useState(false);
+  
   const [generatedLink, setGeneratedLink] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -41,33 +64,105 @@ const EmailInvitation = ({ isOpen, onClose, patientData = null, onSent }) => {
   const [errors, setErrors] = useState({});
   const [preview, setPreview] = useState(false);
   
-  // Pre-fill form if patient data is provided
-  useEffect(() => {
-    if (patientData) {
-      setFormData(prev => ({
-        ...prev,
-        patientName: patientData.name || '',
-        patientEmail: patientData.email || '',
-        patientPhone: patientData.phone || ''
-      }));
-    }
-  }, [patientData]);
-
-  // Reset form when modal opens/closes
+  // Load patients when modal opens
   useEffect(() => {
     if (isOpen) {
+      loadPatients();
       setEmailSent(false);
       setLinkCopied(false);
       setGeneratedLink(null);
       setErrors({});
+      setSelectedPatient(null);
+      setPatientSearch('');
+      setShowPatientDropdown(false);
     }
   }, [isOpen]);
+
+  // Pre-fill form if patient data is provided
+  useEffect(() => {
+    if (patientData) {
+      const patient = {
+        id: patientData.id,
+        first_name: patientData.first_name || patientData.name?.split(' ')[0] || '',
+        last_name: patientData.last_name || patientData.name?.split(' ').slice(1).join(' ') || '',
+        email: patientData.email || '',
+        phone: patientData.phone || ''
+      };
+      selectPatient(patient);
+    }
+  }, [patientData]);
+
+  // Load patients from API
+  const loadPatients = async () => {
+    try {
+      setLoadingPatients(true);
+      const response = await patientService.getAllPatients();
+      // Handle both paginated and direct array responses
+      const patientsData = Array.isArray(response) ? response : 
+                          (response.data ? response.data : []);
+      setPatients(patientsData);
+    } catch (error) {
+      console.error('Error loading patients:', error);
+      setErrors({ general: 'Failed to load patients list' });
+    } finally {
+      setLoadingPatients(false);
+    }
+  };
+
+  // Handle patient selection
+  const selectPatient = (patient) => {
+    setSelectedPatient(patient);
+    setFormData(prev => ({
+      ...prev,
+      patientId: patient.id,
+      patientName: `${patient.first_name} ${patient.last_name}`.trim(),
+      patientEmail: patient.email || '',
+      patientPhone: patient.phone || ''
+    }));
+    setShowPatientDropdown(false);
+    setPatientSearch('');
+  };
+
+  // Clear patient selection
+  const clearPatientSelection = () => {
+    setSelectedPatient(null);
+    setFormData(prev => ({
+      ...prev,
+      patientId: '',
+      patientName: '',
+      patientEmail: '',
+      patientPhone: ''
+    }));
+  };
+
+  // Filter patients based on search
+  const filteredPatients = patients.filter(patient => {
+    if (!patientSearch) return true;
+    const searchTerm = patientSearch.toLowerCase();
+    const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
+    const email = (patient.email || '').toLowerCase();
+    return fullName.includes(searchTerm) || email.includes(searchTerm);
+  });
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showPatientDropdown && !event.target.closest('.patient-dropdown-container')) {
+        setShowPatientDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showPatientDropdown]);
 
   const validateForm = () => {
     const newErrors = {};
     
-    if (!formData.patientName.trim()) {
-      newErrors.patientName = 'Patient name is required';
+    if (!selectedPatient) {
+      newErrors.patient = 'Please select a patient from the list';
     }
     
     if (!formData.patientEmail.trim()) {
@@ -142,41 +237,61 @@ const EmailInvitation = ({ isOpen, onClose, patientData = null, onSent }) => {
   };
 
   const sendEmail = async () => {
-    if (!generatedLink) return;
+    if (!generatedLink || !selectedPatient) return;
     
     setIsSending(true);
     
     try {
-      // Generate email template
-      const emailTemplate = generateEmailTemplate(generatedLink);
+      // Mock implementation - simulate sending email
+      // In production, replace this with actual API call to backend
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
       
-      // In a real application, you would send this to your backend API
-      // For demo purposes, we'll simulate the email sending
+      // Store the email invitation in localStorage for demo purposes
       const emailData = {
-        to: formData.patientEmail,
-        subject: emailTemplate.subject,
-        template: 'consultation-invitation',
-        data: emailTemplate
+        id: Date.now(),
+        patient_id: selectedPatient.id,
+        patient_name: selectedPatient.firstName + ' ' + selectedPatient.lastName,
+        patient_email: selectedPatient.email,
+        message: `You have been scheduled for a video consultation on ${formatMeetingTime(generatedLink.scheduledTime)}. ${formData.notes ? 'Note: ' + formData.notes : ''}`,
+        portal_url: generatedLink.link,
+        sent_at: new Date().toISOString(),
+        status: 'sent'
       };
       
-      console.log('Sending email:', emailData);
+      // Store in localStorage
+      const existingEmails = JSON.parse(localStorage.getItem('sentEmails') || '[]');
+      existingEmails.push(emailData);
+      localStorage.setItem('sentEmails', JSON.stringify(existingEmails));
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('Email invitation sent successfully:', emailData);
       
-      // For demo, we'll use mailto: link to open default email client
-      const mailtoLink = `mailto:${formData.patientEmail}?subject=${encodeURIComponent(emailTemplate.subject)}&body=${encodeURIComponent(generateEmailBody(emailTemplate))}`;
-      window.open(mailtoLink);
+      // Show success notification
+      alert(`📧 Mock Email Sent Successfully!\n\nTo: ${emailData.patient_email}\nSubject: Video Consultation Invitation\n\nNote: This is a demo - no actual email was sent. The invitation data has been stored locally for testing purposes.`);
       
       setEmailSent(true);
       if (onSent) onSent(generatedLink);
       
     } catch (error) {
       console.error('Error sending email:', error);
-      setErrors({ general: 'Failed to send email. Please try again.' });
+      setErrors({ general: error.message || 'Failed to send email. Please try again.' });
     } finally {
       setIsSending(false);
     }
+  };
+
+  // Function to view sent emails (demo purposes)
+  const viewSentEmails = () => {
+    const sentEmails = JSON.parse(localStorage.getItem('sentEmails') || '[]');
+    if (sentEmails.length === 0) {
+      alert('No emails have been sent yet.');
+      return;
+    }
+    
+    const emailsList = sentEmails.map((email, index) => 
+      `${index + 1}. To: ${email.patient_name} (${email.patient_email})\n   Sent: ${new Date(email.sent_at).toLocaleString()}\n   Meeting ID: ${email.portal_url.split('/').pop()}`
+    ).join('\n\n');
+    
+    alert(`📧 Sent Email Invitations (Demo)\n\n${emailsList}\n\nNote: These are mock emails stored locally for demo purposes.`);
   };
 
   const generateEmailBody = (template) => {
@@ -263,83 +378,187 @@ EHR-Eezy Telehealth Team`;
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center space-x-3">
               <CheckCircleIcon className="w-5 h-5 text-green-500 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium text-green-800">Email invitation sent successfully!</p>
-                <p className="text-xs text-green-600 mt-1">Patient will receive the consultation link at {formData.patientEmail}</p>
+                <p className="text-sm font-medium text-green-800">Consultation invitation sent successfully!</p>
+                <p className="text-xs text-green-600 mt-1">
+                  {selectedPatient?.first_name} {selectedPatient?.last_name} will receive the consultation link at {formData.patientEmail}
+                </p>
               </div>
             </div>
           )}
 
           {!generatedLink ? (
             <>
-              {/* Patient Information */}
+              {/* Patient Selection */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                   <UserIcon className="w-5 h-5 mr-2" />
-                  Patient Information
+                  Select Patient
                 </h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Patient Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.patientName}
-                      onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.patientName ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                      placeholder="Enter patient's full name"
-                    />
-                    {errors.patientName && <p className="text-xs text-red-600 mt-1">{errors.patientName}</p>}
-                  </div>
+                {/* Patient Selector */}
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Choose Patient *
+                  </label>
+                  
+                  {selectedPatient ? (
+                    /* Selected Patient Display */
+                    <div className={`w-full px-4 py-3 border rounded-lg bg-blue-50 border-blue-200 ${
+                      errors.patient ? 'border-red-500' : ''
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                            <UserIcon className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {selectedPatient.first_name} {selectedPatient.last_name}
+                            </p>
+                            <p className="text-sm text-gray-600">{selectedPatient.email}</p>
+                            {selectedPatient.phone && (
+                              <p className="text-xs text-gray-500">{selectedPatient.phone}</p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={clearPatientSelection}
+                          className="text-gray-500 hover:text-gray-700 p-1"
+                          type="button"
+                        >
+                          <XMarkIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Patient Search/Select */
+                    <div className="relative patient-dropdown-container">
+                      <div className={`w-full px-3 py-2 border rounded-lg cursor-pointer ${
+                        errors.patient ? 'border-red-500' : 'border-gray-300'
+                      } ${showPatientDropdown ? 'ring-2 ring-blue-500' : ''}`}
+                        onClick={() => setShowPatientDropdown(!showPatientDropdown)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">
+                            {loadingPatients ? 'Loading patients...' : 'Click to select a patient'}
+                          </span>
+                          <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform ${
+                            showPatientDropdown ? 'rotate-180' : ''
+                          }`} />
+                        </div>
+                      </div>
+                      
+                      {/* Patient Dropdown */}
+                      {showPatientDropdown && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                          {/* Search Input */}
+                          <div className="p-3 border-b border-gray-200">
+                            <div className="relative">
+                              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <input
+                                type="text"
+                                placeholder="Search patients..."
+                                value={patientSearch}
+                                onChange={(e) => setPatientSearch(e.target.value)}
+                                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                autoFocus
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Patients List */}
+                          <div className="max-h-48 overflow-y-auto">
+                            {loadingPatients ? (
+                              <div className="p-4 text-center text-gray-500">
+                                <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+                                Loading patients...
+                              </div>
+                            ) : filteredPatients.length > 0 ? (
+                              filteredPatients.map(patient => (
+                                <div
+                                  key={patient.id}
+                                  className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                  onClick={() => selectPatient(patient)}
+                                >
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                      <UserIcon className="w-4 h-4 text-gray-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="font-medium text-gray-900">
+                                        {patient.first_name} {patient.last_name}
+                                      </p>
+                                      <p className="text-sm text-gray-600">{patient.email}</p>
+                                      {patient.phone && (
+                                        <p className="text-xs text-gray-500">{patient.phone}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="p-4 text-center text-gray-500">
+                                {patientSearch ? 'No patients found matching your search' : 'No patients available'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {errors.patient && <p className="text-xs text-red-600 mt-1">{errors.patient}</p>}
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address *
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.patientEmail}
-                      onChange={(e) => setFormData({ ...formData, patientEmail: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.patientEmail ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                      placeholder="patient@email.com"
-                    />
-                    {errors.patientEmail && <p className="text-xs text-red-600 mt-1">{errors.patientEmail}</p>}
-                  </div>
+                {/* Email and Phone (Editable) */}
+                {selectedPatient && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email Address *
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.patientEmail}
+                        onChange={(e) => setFormData({ ...formData, patientEmail: e.target.value })}
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          errors.patientEmail ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder="patient@email.com"
+                      />
+                      {errors.patientEmail && <p className="text-xs text-red-600 mt-1">{errors.patientEmail}</p>}
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone Number (Optional)
-                    </label>
-                    <input
-                      type="tel"
-                      value={formData.patientPhone}
-                      onChange={(e) => setFormData({ ...formData, patientPhone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="(555) 123-4567"
-                    />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Phone Number (Optional)
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.patientPhone}
+                        onChange={(e) => setFormData({ ...formData, patientPhone: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="(555) 123-4567"
+                      />
+                    </div>
                   </div>
+                )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Consultation Type
-                    </label>
-                    <select
-                      value={formData.consultationType}
-                      onChange={(e) => setFormData({ ...formData, consultationType: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="general">General Consultation</option>
-                      <option value="follow-up">Follow-up</option>
-                      <option value="specialist">Specialist Consultation</option>
-                      <option value="emergency">Emergency Consultation</option>
-                      <option value="therapy">Therapy Session</option>
-                    </select>
-                  </div>
+                {/* Consultation Type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Consultation Type
+                  </label>
+                  <select
+                    value={formData.consultationType}
+                    onChange={(e) => setFormData({ ...formData, consultationType: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="general">General Consultation</option>
+                    <option value="follow-up">Follow-up</option>
+                    <option value="specialist">Specialist Consultation</option>
+                    <option value="emergency">Emergency Consultation</option>
+                    <option value="therapy">Therapy Session</option>
+                  </select>
                 </div>
               </div>
 
@@ -422,19 +641,51 @@ EHR-Eezy Telehealth Team`;
           ) : (
             /* Generated Link Display */
             <div className="space-y-6">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-green-800 mb-2 flex items-center">
-                  <CheckCircleIcon className="w-5 h-5 mr-2" />
-                  Consultation Link Generated
-                </h3>
-                <div className="space-y-3 text-sm">
-                  <p><span className="font-medium">Patient:</span> {generatedLink.patientName}</p>
-                  <p><span className="font-medium">Email:</span> {generatedLink.patientEmail}</p>
-                  <p><span className="font-medium">Scheduled:</span> {formatMeetingTime(generatedLink.scheduledTime)}</p>
-                  <p><span className="font-medium">Duration:</span> {generatedLink.duration} minutes</p>
-                  <p><span className="font-medium">Meeting ID:</span> {generatedLink.id}</p>
+              {emailSent ? (
+                /* Email Sent Confirmation */
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-blue-800 mb-2 flex items-center">
+                    <PaperAirplaneIcon className="w-5 h-5 mr-2" />
+                    Email Invitation Sent Successfully! 
+                  </h3>
+                  <div className="space-y-3 text-sm">
+                    <p className="text-blue-700">
+                      📧 Mock email has been "sent" to <strong>{generatedLink.patientEmail}</strong>
+                    </p>
+                    <p className="text-blue-600 text-xs">
+                      <strong>Demo Note:</strong> This is a mock implementation. No actual email was sent. 
+                      In production, this would send a real email with the consultation link.
+                    </p>
+                    <div className="mt-3 p-3 bg-white rounded border">
+                      <p className="font-medium text-gray-700">Consultation Details:</p>
+                      <p><span className="font-medium">Patient:</span> {generatedLink.patientName}</p>
+                      <p><span className="font-medium">Scheduled:</span> {formatMeetingTime(generatedLink.scheduledTime)}</p>
+                      <p><span className="font-medium">Duration:</span> {generatedLink.duration} minutes</p>
+                      <p><span className="font-medium">Meeting ID:</span> {generatedLink.id}</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Link Generated - Ready to Send */
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-green-800 mb-2 flex items-center">
+                    <CheckCircleIcon className="w-5 h-5 mr-2" />
+                    Consultation Link Generated
+                  </h3>
+                  <div className="space-y-3 text-sm">
+                    <p><span className="font-medium">Patient:</span> {generatedLink.patientName}</p>
+                    <p><span className="font-medium">Email:</span> {generatedLink.patientEmail}</p>
+                    <p><span className="font-medium">Scheduled:</span> {formatMeetingTime(generatedLink.scheduledTime)}</p>
+                    <p><span className="font-medium">Duration:</span> {generatedLink.duration} minutes</p>
+                    <p><span className="font-medium">Meeting ID:</span> {generatedLink.id}</p>
+                  </div>
+                  <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                    <p className="text-yellow-800 text-xs">
+                      👆 <strong>Next step:</strong> Click "Send Email Invitation" below to send the consultation link to the patient
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Generated Links */}
               <div className="space-y-4">
@@ -499,10 +750,18 @@ EHR-Eezy Telehealth Team`;
 
         {/* Footer Actions */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
-          <div className="text-sm text-gray-500">
-            {!generatedLink && (
-              <span>* Required fields</span>
-            )}
+          <div className="flex items-center space-x-3">
+            <div className="text-sm text-gray-500">
+              {!generatedLink && (
+                <span>* Required fields</span>
+              )}
+            </div>
+            <button
+              onClick={viewSentEmails}
+              className="text-xs text-blue-600 hover:text-blue-800 underline"
+            >
+              📧 View Sent Emails (Demo)
+            </button>
           </div>
           
           <div className="flex space-x-3">

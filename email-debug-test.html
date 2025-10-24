@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EHR-Eezy Email Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        button { padding: 15px 25px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        .log { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; font-family: monospace; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 EHR-Eezy Email Debug Test</h1>
+        
+        <div>
+            <button onclick="testEmailToGrant()">📧 Test Email to grant8827@yahoo.com</button>
+            <button onclick="testEmailToOther()">📧 Test Email to Other Address (Mock)</button>
+            <button onclick="viewLocalStorage()">💾 View Stored Data</button>
+            <button onclick="clearLogs()">🗑️ Clear Logs</button>
+        </div>
+        
+        <div id="log" class="log">Ready to test...\n</div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            logDiv.textContent += logMessage;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            if (type === 'success') {
+                logDiv.className = 'log success';
+            } else if (type === 'error') {
+                logDiv.className = 'log error';
+            } else {
+                logDiv.className = 'log info';
+            }
+        }
+
+        function generateToken() {
+            return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        }
+
+        async function sendRealTestEmail(invitationData) {
+            log('🚀 Starting email test...');
+            
+            const emailContent = `
+Dear ${invitationData.firstName},
+
+You have been invited to join the EHR-Eezy patient portal!
+
+Patient Details:
+- Name: ${invitationData.firstName} ${invitationData.lastName}
+- Email: ${invitationData.email}
+- Phone: ${invitationData.phone || 'Not provided'}
+
+Registration Link:
+${window.location.origin}/patient-setup?email=${encodeURIComponent(invitationData.email)}&token=${generateToken()}
+
+This is a test email from the EHR-Eezy system.
+
+Best regards,
+EHR-Eezy Team
+            `;
+
+            // Try multiple email services
+            let response;
+            let serviceName;
+            
+            try {
+                // Method 1: FormSubmit.co
+                log('Trying FormSubmit.co...');
+                serviceName = 'FormSubmit.co';
+                
+                const formData = new FormData();
+                formData.append('name', `${invitationData.firstName} ${invitationData.lastName}`);
+                formData.append('email', 'noreply@ehr-eezy.com');
+                formData.append('subject', '🏥 EHR-Eezy Patient Portal Invitation - DEBUG TEST');
+                formData.append('message', emailContent);
+                
+                response = await fetch('https://formsubmit.co/grant8827@yahoo.com', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                log(`FormSubmit response: ${response.status} ${response.statusText}`);
+                
+                if (!response.ok) throw new Error(`FormSubmit.co failed: ${response.status}`);
+                
+                log('✅ FormSubmit.co succeeded!', 'success');
+                
+            } catch (e1) {
+                log(`❌ FormSubmit.co failed: ${e1.message}`, 'error');
+                log('📧 Creating email simulation instead...');
+                
+                // Create a detailed log that simulates email sending
+                serviceName = 'Local Simulation';
+                
+                const emailSimulation = {
+                    service: 'EHR-Eezy Email Simulator',
+                    to: invitationData.email,
+                    from: 'noreply@ehr-eezy.com',
+                    subject: '🏥 EHR-Eezy Patient Portal Invitation',
+                    body: emailContent,
+                    sent_at: new Date().toISOString(),
+                    method: 'simulation',
+                    status: 'simulated_success'
+                };
+                
+                log('📧 EMAIL SIMULATION CREATED:');
+                log(`To: ${emailSimulation.to}`);
+                log(`From: ${emailSimulation.from}`);
+                log(`Subject: ${emailSimulation.subject}`);
+                log('Full email content saved to localStorage');
+                
+                // Store the email simulation
+                const emailLogs = JSON.parse(localStorage.getItem('email_simulations') || '[]');
+                emailLogs.push(emailSimulation);
+                localStorage.setItem('email_simulations', JSON.stringify(emailLogs));
+                
+                // Simulate successful response
+                response = { ok: true, status: 200 };
+                
+                log('✅ Email simulation completed!', 'success');
+            }
+
+            if (response.ok) {
+                log(`✅ Email processed successfully via ${serviceName}!`, 'success');
+                
+                const result = {
+                    id: Date.now(),
+                    firstName: invitationData.firstName,
+                    lastName: invitationData.lastName,
+                    email: invitationData.email,
+                    phone: invitationData.phone,
+                    message: invitationData.message,
+                    status: serviceName === 'Local Simulation' ? 'simulated' : 'sent_real',
+                    sent_at: new Date().toISOString(),
+                    service_used: serviceName
+                };
+
+                // Store locally for tracking
+                const existingInvitations = JSON.parse(localStorage.getItem('patient_invitations') || '[]');
+                existingInvitations.push(result);
+                localStorage.setItem('patient_invitations', JSON.stringify(existingInvitations));
+                
+                return result;
+            } else {
+                const error = new Error(`Email service responded with status ${response.status}`);
+                log(`❌ All email methods failed: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        async function testEmailToGrant() {
+            try {
+                const result = await sendRealTestEmail({
+                    firstName: 'Grant',
+                    lastName: 'Test',
+                    email: 'grant8827@yahoo.com',
+                    phone: '555-123-4567',
+                    message: 'This is a test message from the EHR-Eezy debug system!'
+                });
+                
+                log(`\n🎉 TEST COMPLETED - Status: ${result.status}`, 'success');
+                
+                if (result.status === 'sent_real') {
+                    log('📧 Check your email at grant8827@yahoo.com (may take 1-2 minutes)', 'success');
+                } else {
+                    log('📧 Email was simulated - check "View Stored Data" to see content', 'info');
+                }
+                
+            } catch (error) {
+                log(`❌ Test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testEmailToOther() {
+            try {
+                log('🔄 Testing with non-grant email (should use mock)...');
+                
+                // This should trigger the mock behavior
+                const mockData = {
+                    firstName: 'John',
+                    lastName: 'Doe',
+                    email: 'john.doe@example.com',
+                    phone: '555-987-6543',
+                    message: 'This should be a mock invitation'
+                };
+                
+                log(`📧 Mock invitation created for ${mockData.email}`, 'info');
+                
+                // Simulate the mock process
+                const mockResult = {
+                    id: Date.now(),
+                    ...mockData,
+                    status: 'mock_sent',
+                    sent_at: new Date().toISOString()
+                };
+                
+                const existingInvitations = JSON.parse(localStorage.getItem('patient_invitations') || '[]');
+                existingInvitations.push(mockResult);
+                localStorage.setItem('patient_invitations', JSON.stringify(existingInvitations));
+                
+                log('✅ Mock invitation completed!', 'success');
+                
+            } catch (error) {
+                log(`❌ Mock test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function viewLocalStorage() {
+            log('\n📊 STORED DATA:');
+            log('='.repeat(40));
+            
+            const invitations = JSON.parse(localStorage.getItem('patient_invitations') || '[]');
+            const simulations = JSON.parse(localStorage.getItem('email_simulations') || '[]');
+            
+            log(`📧 Patient Invitations: ${invitations.length}`);
+            invitations.forEach((inv, i) => {
+                log(`  ${i+1}. ${inv.firstName} ${inv.lastName} (${inv.email}) - ${inv.status}`);
+            });
+            
+            log(`📧 Email Simulations: ${simulations.length}`);
+            simulations.forEach((sim, i) => {
+                log(`  ${i+1}. To: ${sim.to} - ${new Date(sim.sent_at).toLocaleString()}`);
+            });
+            
+            if (simulations.length > 0) {
+                log('\n📧 LATEST EMAIL SIMULATION:');
+                const latest = simulations[simulations.length - 1];
+                log(latest.body);
+            }
+            
+            log('='.repeat(40));
+        }
+
+        function clearLogs() {
+            document.getElementById('log').textContent = 'Logs cleared...\n';
+            localStorage.removeItem('patient_invitations');
+            localStorage.removeItem('email_simulations');
+            log('🗑️ All stored data cleared');
+        }
+    </script>
+</body>
+</html>

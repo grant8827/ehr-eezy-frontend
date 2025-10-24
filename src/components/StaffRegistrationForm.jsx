@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
 import toast from 'react-hot-toast';
+import { staffAPI } from '../services/apiService';
 
 const StaffRegistrationForm = ({ isOpen, onClose, staff = null, onSuccess }) => {
   const [loading, setLoading] = useState(false);
@@ -117,9 +117,6 @@ const StaffRegistrationForm = ({ isOpen, onClose, staff = null, onSuccess }) => 
     setErrors({});
 
     try {
-      const url = staff ? `/api/staff/${staff.id}` : '/api/staff';
-      const method = staff ? 'put' : 'post';
-      
       // Create FormData for file upload
       const formDataToSend = new FormData();
       
@@ -136,16 +133,14 @@ const StaffRegistrationForm = ({ isOpen, onClose, staff = null, onSuccess }) => 
         }
       });
 
-      // For PUT requests, Laravel needs _method parameter for file uploads
-      if (method === 'put') {
+      // Use staffAPI methods
+      if (staff) {
+        // For PUT requests, Laravel needs _method parameter for file uploads
         formDataToSend.append('_method', 'PUT');
+        await staffAPI.update(staff.id, formDataToSend);
+      } else {
+        await staffAPI.create(formDataToSend);
       }
-
-      await axios.post(url, formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
       
       toast.success(`Staff member ${staff ? 'updated' : 'added'} successfully!`);
       onSuccess();

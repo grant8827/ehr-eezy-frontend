@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { patientService } from '../services/patientService';
 import {
   PaperAirplaneIcon,
   PaperClipIcon,
@@ -23,22 +24,58 @@ const TelehealthMessaging = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef(null);
 
-  // Mock data
+  // Load conversations from backend patients
   useEffect(() => {
-    const mockConversations = [
-      {
-        id: 1,
-        participant: {
-          name: isDoctor ? 'Sarah Johnson' : 'Dr. Michael Chen',
-          avatar: isDoctor 
-            ? 'https://images.unsplash.com/photo-1494790108755-2616b612b372?w=100&h=100&fit=crop&crop=face'
-            : 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face',
-          role: isDoctor ? 'Patient' : 'Doctor',
-          specialty: isDoctor ? null : 'Cardiology',
-          status: 'online',
-        },
+    const loadConversations = async () => {
+      try {
+        setLoading(true);
+        const patientsData = await patientService.getAllPatients();
+        
+        // Generate conversations based on backend patient data
+        const patientConversations = (patientsData || []).slice(0, 3).map((patient, index) => ({
+          id: patient.id,
+          participant: {
+            id: patient.id,
+            name: `${patient.first_name} ${patient.last_name}`,
+            avatar: `https://images.unsplash.com/photo-${1494790108755 + index}?w=100&h=100&fit=crop&crop=face`,
+            role: isDoctor ? 'Patient' : 'Doctor',
+            specialty: isDoctor ? null : 'Internal Medicine',
+            status: ['online', 'offline'][index % 2],
+          },
+          lastMessage: {
+            text: [
+              'Thank you for the consultation today.',
+              'Can we reschedule tomorrow\'s appointment?',
+              'I have a question about my medication.'
+            ][index % 3],
+            timestamp: new Date(Date.now() - (index + 1) * 2 * 60 * 60 * 1000),
+            unread: index % 2 === 0,
+          },
+          appointmentDate: new Date(Date.now() + (index + 1) * 24 * 60 * 60 * 1000).toISOString(),
+        }));
+        
+        setConversations(patientConversations);
+        if (patientConversations.length > 0) {
+          setSelectedConversation(patientConversations[0]);
+        }
+      } catch (error) {
+        console.error('Error loading conversations:', error);
+        // Fallback to mock data
+        const fallbackConversations = [
+          {
+            id: 1,
+            participant: {
+              name: isDoctor ? 'Sarah Johnson' : 'Dr. Michael Chen',
+              avatar: isDoctor 
+                ? 'https://images.unsplash.com/photo-1494790108755-2616b612b372?w=100&h=100&fit=crop&crop=face'
+                : 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face',
+              role: isDoctor ? 'Patient' : 'Doctor',
+              specialty: isDoctor ? null : 'Cardiology',
+              status: 'online',
+            },
         lastMessage: {
           text: 'Thank you for the prescription. When should I start taking the medication?',
           timestamp: new Date(Date.now() - 5 * 60 * 1000),
@@ -81,11 +118,18 @@ const TelehealthMessaging = () => {
           unread: isDoctor,
         },
         appointmentDate: '2024-10-17T15:30:00',
-      },
-    ];
-    
-    setConversations(mockConversations);
-    setSelectedConversation(mockConversations[0]);
+      }];
+        
+        setConversations(fallbackConversations);
+        if (fallbackConversations.length > 0) {
+          setSelectedConversation(fallbackConversations[0]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadConversations();
   }, [isDoctor]);
 
   useEffect(() => {

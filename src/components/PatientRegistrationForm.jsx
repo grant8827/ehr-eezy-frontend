@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
 import toast from 'react-hot-toast';
+import { patientAPI } from '../services/apiService';
 
 const PatientRegistrationForm = ({ isOpen, onClose, patient = null, onSuccess }) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -213,10 +213,10 @@ const PatientRegistrationForm = ({ isOpen, onClose, patient = null, onSuccess })
     try {
       let response;
       if (patient) {
-        response = await axios.put(`/api/patients/${patient.id}`, submitData);
+        response = await patientAPI.update(patient.id, submitData);
         toast.success('Patient updated successfully!');
       } else {
-        response = await axios.post('/api/patients', submitData);
+        response = await patientAPI.create(submitData);
         toast.success('Patient registered successfully!');
       }
       

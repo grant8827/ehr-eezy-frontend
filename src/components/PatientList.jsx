@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { PlusIcon, MagnifyingGlassIcon, FunnelIcon, EyeIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import { Link, useLocation } from 'react-router-dom';
+import { PlusIcon, MagnifyingGlassIcon, FunnelIcon, EyeIcon, PencilIcon, TrashIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import PatientRegistrationForm from './PatientRegistrationForm';
+import PatientInvitationModal from './modals/PatientInvitationModal';
+import { patientAPI } from '../services/apiService';
 
 const PatientList = () => {
+  const location = useLocation();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const [showInvitationModal, setShowInvitationModal] = useState(false);
   const [editingPatient, setEditingPatient] = useState(null);
 
   const [stats, setStats] = useState({
@@ -26,7 +29,7 @@ const PatientList = () => {
 
   const fetchPatients = async () => {
     try {
-      const response = await axios.get('/api/patients');
+      const response = await patientAPI.getAll();
       
       // Handle different response formats
       const patientsData = Array.isArray(response.data) ? response.data : 
@@ -77,7 +80,7 @@ const PatientList = () => {
   const handleDeletePatient = async (patientId) => {
     if (window.confirm('Are you sure you want to delete this patient? This action cannot be undone.')) {
       try {
-        await axios.delete(`/api/patients/${patientId}`);
+        await patientAPI.delete(patientId);
         toast.success('Patient deleted successfully!');
         fetchPatients();
       } catch (error) {
@@ -91,6 +94,11 @@ const PatientList = () => {
     fetchPatients();
     setShowRegistrationForm(false);
     setEditingPatient(null);
+  };
+
+  const handleInvitationSuccess = (invitationData) => {
+    console.log('Invitation sent:', invitationData);
+    // Optionally refresh any invitation tracking data
   };
 
   const filteredPatients = Array.isArray(patients) ? patients.filter(patient => {
@@ -126,19 +134,54 @@ const PatientList = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header with Tabs */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Patients</h1>
           <p className="text-gray-600">Manage your patient database</p>
+          
+          {/* Tab Navigation */}
+          <div className="mt-4 border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <Link
+                to="/app/patients"
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  location.pathname === '/app/patients'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Patient List
+              </Link>
+              <Link
+                to="/app/patients/invitations"
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  location.pathname === '/app/patients/invitations'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Invitations
+              </Link>
+            </nav>
+          </div>
         </div>
-        <button
-          onClick={handleAddPatient}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-        >
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add Patient
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setShowInvitationModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-blue-600 rounded-md shadow-sm text-sm font-medium text-blue-600 bg-white hover:bg-blue-50"
+          >
+            <PaperAirplaneIcon className="h-4 w-4 mr-2" />
+            Invite Patient
+          </button>
+          <button
+            onClick={handleAddPatient}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Add Patient
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -344,6 +387,13 @@ const PatientList = () => {
         }}
         patient={editingPatient}
         onSuccess={handleFormSuccess}
+      />
+
+      {/* Patient Invitation Modal */}
+      <PatientInvitationModal
+        isOpen={showInvitationModal}
+        onClose={() => setShowInvitationModal(false)}
+        onSuccess={handleInvitationSuccess}
       />
     </div>
   );

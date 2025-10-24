@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import AppointmentForm from './AppointmentForm';
-import axios from 'axios';
 import toast from 'react-hot-toast';
+import { staffAPI, appointmentAPI } from '../services/apiService';
 import { 
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -45,7 +45,7 @@ const AppointmentCalendar = () => {
         params.staff_id = selectedStaff;
       }
 
-      const response = await axios.get('/api/appointments', { params });
+      const response = await appointmentAPI.getAll(params);
       setAppointments(response.data.data || []);
     } catch (error) {
       console.error('Error fetching appointments:', error);
@@ -57,7 +57,7 @@ const AppointmentCalendar = () => {
 
   const fetchStaff = async () => {
     try {
-      const response = await axios.get('/api/staff');
+      const response = await staffAPI.getAll();
       setStaff(response.data.data || []);
     } catch (error) {
       console.error('Error fetching staff:', error);

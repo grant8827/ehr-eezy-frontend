@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLocation } from 'react-router-dom';
 import AppointmentForm from './AppointmentForm';
-import axios from 'axios';
 import toast from 'react-hot-toast';
+import { staffAPI, appointmentAPI } from '../services/apiService';
 import { 
   CalendarIcon, 
   ClockIcon, 
@@ -19,12 +20,21 @@ import {
 
 const AppointmentList = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Check for create query parameter
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('create') === 'true') {
+      setShowForm(true);
+    }
+  }, [location.search]);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -47,13 +57,13 @@ const AppointmentList = () => {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
+      const params = {
         page: currentPage,
         per_page: 15,
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v !== ''))
-      });
+      };
 
-      const response = await axios.get(`/api/appointments?${params}`);
+      const response = await appointmentAPI.getAll(params);
       setAppointments(response.data.data);
       setCurrentPage(response.data.current_page);
       setTotalPages(response.data.last_page);
@@ -67,7 +77,7 @@ const AppointmentList = () => {
 
   const fetchStaff = async () => {
     try {
-      const response = await axios.get('/api/staff');
+      const response = await staffAPI.getAll();
       setStaff(response.data.data || []);
     } catch (error) {
       console.error('Error fetching staff:', error);
@@ -97,7 +107,7 @@ const AppointmentList = () => {
         data.cancellation_reason = cancellationReason;
       }
 
-      await axios.patch(`/api/appointments/${appointmentId}/status`, data);
+      await appointmentAPI.updateStatus(appointmentId, data);
       toast.success(`Appointment ${status} successfully`);
       fetchAppointments();
     } catch (error) {
@@ -112,7 +122,7 @@ const AppointmentList = () => {
     }
 
     try {
-      await axios.delete(`/api/appointments/${appointmentId}`);
+      await appointmentAPI.delete(appointmentId);
       toast.success('Appointment deleted successfully');
       fetchAppointments();
     } catch (error) {
