@@ -284,7 +284,7 @@ const PatientDashboard = () => {
               </button>
               
               <button 
-                onClick={() => navigate('/app/telehealth')}
+                onClick={() => navigate('/app/telehealth/consultation')}
                 className="w-full flex items-center space-x-3 p-3 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
               >
                 <VideoCameraIcon className="w-5 h-5 text-indigo-600" />
