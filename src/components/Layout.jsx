@@ -26,13 +26,12 @@ const Layout = () => {
 
   // Different navigation based on user role
   const navigation = isPatient ? [
-    // Patient-specific navigation
-    { name: 'Dashboard', href: '/app/dashboard', icon: HomeIcon },
-    { name: 'My Appointments', href: '/app/appointments', icon: CalendarDaysIcon },
-    { name: 'Medical Records', href: '/app/medical-records', icon: DocumentTextIcon },
-    { name: 'Billing', href: '/app/billing', icon: CurrencyDollarIcon },
+    // Patient-specific navigation - simplified (telehealth first)
+    { name: 'Telehealth', href: '/app/telehealth', icon: HeartIcon },
     { name: 'Messages', href: '/app/messages', icon: ChatBubbleLeftRightIcon },
-    { name: 'Healthcare Platform', href: '/app/telehealth', icon: HeartIcon },
+    { name: 'Medical Records', href: '/app/medical-records', icon: DocumentTextIcon },
+    { name: 'Appointments', href: '/app/appointments', icon: CalendarDaysIcon },
+    { name: 'Billing', href: '/app/billing', icon: CurrencyDollarIcon },
   ] : [
     // Doctor/Staff navigation
     { name: 'Dashboard', href: '/app/dashboard', icon: HomeIcon },

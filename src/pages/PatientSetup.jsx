@@ -113,9 +113,9 @@ const PatientSetup = () => {
         
         toast.success('Welcome to EHReezy! Redirecting to your dashboard...');
         
-        // Redirect to patient dashboard - force patient-specific route
+        // Redirect to telehealth for patients
         setTimeout(() => {
-          navigate('/app/dashboard');
+          navigate('/app/telehealth');
         }, 1500);
       } else {
         // Fallback to manual login if no token provided
@@ -126,9 +126,9 @@ const PatientSetup = () => {
         if (loginResult.success) {
           toast.success('Welcome to EHReezy! Redirecting to your dashboard...');
           
-          // Redirect to patient dashboard - force patient-specific route
+          // Redirect to telehealth for patients
           setTimeout(() => {
-            navigate('/app/dashboard');
+            navigate('/app/telehealth');
           }, 1500);
         } else {
           toast.success('Registration completed! Please log in with your credentials.');
