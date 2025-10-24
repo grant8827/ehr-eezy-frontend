@@ -144,7 +144,7 @@ const JoinConsultation = () => {
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     // Navigate to video consultation with meeting data
-    navigate('/app/telehealth/video', { 
+    navigate('/app/telehealth/consultation', { 
       state: { 
         meetingData,
         patientMode: true,

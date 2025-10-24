@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   VideoCameraIcon,
   VideoCameraSlashIcon,
@@ -29,6 +31,8 @@ import {
 } from '@heroicons/react/24/outline';
 
 const VideoConsultation = () => {
+  const { user, isPatient, isDoctor } = useAuth();
+  const location = useLocation();
   const [isCallActive, setIsCallActive] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
@@ -367,6 +371,44 @@ const VideoConsultation = () => {
     };
   }, []);
 
+  // Auto-start consultation for patients
+  useEffect(() => {
+    // Check if user came from join consultation link
+    const navigationState = location.state;
+    const isFromJoinLink = navigationState?.patientMode && navigationState?.meetingData;
+    
+    if (isFromJoinLink && !isCallActive && !selectedPatient) {
+      console.log('Starting consultation from join link:', navigationState);
+      
+      // Create patient object from meeting data
+      const patientData = {
+        id: navigationState.meetingData.id || 'PATIENT-' + Date.now(),
+        name: navigationState.patientName || navigationState.meetingData.patientName || 'Patient',
+        type: navigationState.meetingData.type || 'Consultation',
+        time: new Date().toLocaleTimeString(),
+        status: 'active',
+        meetingData: navigationState.meetingData
+      };
+      
+      // Auto-start consultation from join link
+      startConsultation(patientData);
+    } else if (user && isPatient && !isCallActive && !selectedPatient && !isFromJoinLink) {
+      console.log('Auto-starting consultation for logged-in patient:', user);
+      
+      // Create patient object from user data
+      const patientData = {
+        id: user.id || 'PATIENT-' + user.id,
+        name: `${user.first_name} ${user.last_name}`,
+        type: 'Patient Consultation',
+        time: new Date().toLocaleTimeString(),
+        status: 'active'
+      };
+      
+      // Auto-start consultation for the patient
+      startConsultation(patientData);
+    }
+  }, [user, isPatient, isCallActive, selectedPatient, location.state]);
+
   // Ensure video element gets the stream when video is turned on
   useEffect(() => {
     if (isVideoOn && localStream.current && videoRef.current) {
@@ -426,15 +468,45 @@ const VideoConsultation = () => {
   // Start consultation
   const startConsultation = async (patient) => {
     setSelectedPatient(patient);
-    setPatientInfo({
-      name: patient.name,
-      age: Math.floor(Math.random() * 40) + 25, // Random age for demo
-      id: patient.id,
-      condition: 'Consultation',
-      lastVisit: '2025-10-01',
-      allergies: ['None known'],
-      medications: ['As prescribed']
-    });
+    
+    // Set patient info based on user role and meeting data
+    const navigationState = location.state;
+    const isFromJoinLink = navigationState?.patientMode && navigationState?.meetingData;
+    
+    if (isFromJoinLink) {
+      // For patients coming from join link, use meeting data
+      setPatientInfo({
+        name: navigationState.patientName || navigationState.meetingData.patientName || patient.name,
+        age: 'Not specified',
+        id: navigationState.meetingData.id || patient.id,
+        condition: `${navigationState.meetingData.type} Consultation` || 'Telehealth Consultation',
+        lastVisit: 'Consultation via link',
+        allergies: ['None specified'],
+        medications: ['None specified']
+      });
+    } else if (isPatient && user) {
+      // For logged-in patients, use their own information
+      setPatientInfo({
+        name: `${user.first_name} ${user.last_name}`,
+        age: user.age || 'Not specified',
+        id: user.id || `PAT-${user.id}`,
+        condition: 'Telehealth Consultation',
+        lastVisit: user.last_visit || 'First visit',
+        allergies: user.allergies || ['None specified'],
+        medications: user.medications || ['None specified']
+      });
+    } else {
+      // For staff/doctors, use the selected patient info
+      setPatientInfo({
+        name: patient.name,
+        age: Math.floor(Math.random() * 40) + 25, // Random age for demo
+        id: patient.id,
+        condition: 'Consultation',
+        lastVisit: '2025-10-01',
+        allergies: ['None known'],
+        medications: ['As prescribed']
+      });
+    }
     
     // Start camera when consultation begins
     const stream = await startCamera();
@@ -482,8 +554,8 @@ const VideoConsultation = () => {
 
   return (
     <div className="h-screen bg-gray-900 flex flex-col">
-      {/* Start Consultation Dialog */}
-      {showStartDialog && (
+      {/* Start Consultation Dialog - Only show for doctors/staff */}
+      {showStartDialog && (isDoctor || !isPatient) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4">
             <h3 className="text-2xl font-bold text-gray-800 mb-6">Start Video Consultation</h3>
@@ -552,57 +624,78 @@ const VideoConsultation = () => {
         </div>
       )}
 
-      {/* Start Consultation Button (when no active call) */}
+      {/* Start Consultation Interface (when no active call) */}
       {!isCallActive && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
           <div className="text-center">
-            <div className="space-y-4">
-              <button
-                onClick={() => {
-                  // Start consultation with default patient or first available patient
-                  const defaultPatient = availablePatients[0] || {
-                    id: 'P001',
-                    name: 'John Doe',
-                    type: 'Consultation',
-                    time: '2:00 PM',
-                    status: 'waiting'
-                  };
-                  startConsultation(defaultPatient);
-                }}
-                className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-3 text-lg mx-auto"
-              >
-                <VideoCameraIcon className="h-6 w-6" />
-                <span>Start Video Consultation</span>
-              </button>
-              
-              <div className="flex space-x-3 justify-center">
+            {isPatient ? (
+              /* Patient View - Loading/Waiting state */
+              <div className="space-y-4">
+                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <VideoCameraIcon className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-2xl font-semibold text-white mb-2">
+                  Welcome, {user?.first_name}!
+                </h2>
+                <p className="text-gray-300 mb-6">
+                  Setting up your consultation...
+                </p>
+                <div className="flex items-center justify-center space-x-2 text-blue-400">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse delay-75"></div>
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse delay-150"></div>
+                </div>
+              </div>
+            ) : (
+              /* Staff/Doctor View - Full controls */
+              <div className="space-y-4">
                 <button
-                  onClick={() => setShowStartDialog(true)}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2 text-sm"
+                  onClick={() => {
+                    // Start consultation with default patient or first available patient
+                    const defaultPatient = availablePatients[0] || {
+                      id: 'P001',
+                      name: 'John Doe',
+                      type: 'Consultation',
+                      time: '2:00 PM',
+                      status: 'waiting'
+                    };
+                    startConsultation(defaultPatient);
+                  }}
+                  className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-3 text-lg mx-auto"
                 >
-                  <UserIcon className="h-4 w-4" />
-                  <span>Select Patient</span>
+                  <VideoCameraIcon className="h-6 w-6" />
+                  <span>Start Video Consultation</span>
                 </button>
                 
-                <button
-                  onClick={async () => {
-                    const stream = await startCamera();
-                    if (stream) {
-                      setTimeout(() => stopCamera(), 3000); // Preview for 3 seconds
-                      alert('Camera test successful! Camera will be enabled when you start consultation.');
-                    }
-                  }}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 text-sm"
-                >
-                  <CameraIcon className="h-4 w-4" />
-                  <span>Test Camera</span>
-                </button>
+                <div className="flex space-x-3 justify-center">
+                  <button
+                    onClick={() => setShowStartDialog(true)}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2 text-sm"
+                  >
+                    <UserIcon className="h-4 w-4" />
+                    <span>Select Patient</span>
+                  </button>
+                  
+                  <button
+                    onClick={async () => {
+                      const stream = await startCamera();
+                      if (stream) {
+                        setTimeout(() => stopCamera(), 3000); // Preview for 3 seconds
+                        alert('Camera test successful! Camera will be enabled when you start consultation.');
+                      }
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 text-sm"
+                  >
+                    <CameraIcon className="h-4 w-4" />
+                    <span>Test Camera</span>
+                  </button>
+                </div>
+                
+                <p className="text-gray-400 mt-4 text-sm">
+                  Start immediately or choose a specific patient
+                </p>
               </div>
-            </div>
-            
-            <p className="text-gray-400 mt-4 text-sm">
-              Start immediately or choose a specific patient
-            </p>
+            )}
           </div>
         </div>
       )}
@@ -755,14 +848,16 @@ const VideoConsultation = () => {
                 )}
               </button>
 
-              {/* Patient Info */}
-              <button
-                onClick={() => setShowPatientInfo(!showPatientInfo)}
-                className="p-3 rounded-full bg-gray-600 hover:bg-gray-700 text-white"
-                title="Patient Information"
-              >
-                <ClipboardDocumentListIcon className="w-6 h-6" />
-              </button>
+              {/* Patient Info - Only show for doctors/staff */}
+              {(isDoctor || !isPatient) && (
+                <button
+                  onClick={() => setShowPatientInfo(!showPatientInfo)}
+                  className="p-3 rounded-full bg-gray-600 hover:bg-gray-700 text-white"
+                  title="Patient Information"
+                >
+                  <ClipboardDocumentListIcon className="w-6 h-6" />
+                </button>
+              )}
 
               {/* Transcription Toggle */}
               <button
@@ -864,8 +959,8 @@ const VideoConsultation = () => {
         </div>
       )}
 
-      {/* Patient Info Panel */}
-      {showPatientInfo && (
+      {/* Patient Info Panel - Only show for doctors/staff */}
+      {showPatientInfo && (isDoctor || !isPatient) && (
         <div className="absolute left-0 top-0 bottom-0 w-96 bg-white shadow-xl border-r border-gray-200 flex flex-col">
           <div className="p-4 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center justify-between">
