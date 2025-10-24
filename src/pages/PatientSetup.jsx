@@ -113,7 +113,7 @@ const PatientSetup = () => {
         
         toast.success('Welcome to EHReezy! Redirecting to your dashboard...');
         
-        // Redirect to patient dashboard
+        // Redirect to patient dashboard - force patient-specific route
         setTimeout(() => {
           navigate('/app/dashboard');
         }, 1500);
@@ -126,7 +126,7 @@ const PatientSetup = () => {
         if (loginResult.success) {
           toast.success('Welcome to EHReezy! Redirecting to your dashboard...');
           
-          // Redirect to patient dashboard
+          // Redirect to patient dashboard - force patient-specific route
           setTimeout(() => {
             navigate('/app/dashboard');
           }, 1500);

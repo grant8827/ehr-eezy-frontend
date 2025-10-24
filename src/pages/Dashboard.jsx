@@ -124,19 +124,23 @@ const Dashboard = () => {
     );
   }
 
-  // Debug role detection
+  // Debug role detection with more detail
   console.log('🔍 Dashboard Role Debug:', {
     user,
+    userRole: user?.role,
     isPatient,
     isDoctor,
     isAdmin,
-    userRole: user?.role
+    localStorage_user: JSON.parse(localStorage.getItem('user') || '{}'),
+    timestamp: new Date().toISOString()
   });
 
   // Show patient dashboard for patients
   if (isPatient) {
-    console.log('✅ Showing PatientDashboard for patient');
+    console.log('✅ Showing PatientDashboard for patient:', user?.email);
     return <PatientDashboard />;
+  } else {
+    console.log('ℹ️ Showing Doctor/Admin Dashboard for role:', user?.role);
   }
 
   return (

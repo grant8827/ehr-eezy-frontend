@@ -19,12 +19,22 @@ import {
 } from '@heroicons/react/24/outline';
 
 const Layout = () => {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isPatient } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const navigation = [
+  // Different navigation based on user role
+  const navigation = isPatient ? [
+    // Patient-specific navigation
+    { name: 'Dashboard', href: '/app/dashboard', icon: HomeIcon },
+    { name: 'My Appointments', href: '/app/appointments', icon: CalendarDaysIcon },
+    { name: 'Medical Records', href: '/app/medical-records', icon: DocumentTextIcon },
+    { name: 'Billing', href: '/app/billing', icon: CurrencyDollarIcon },
+    { name: 'Messages', href: '/app/messages', icon: ChatBubbleLeftRightIcon },
+    { name: 'Healthcare Platform', href: '/app/telehealth', icon: HeartIcon },
+  ] : [
+    // Doctor/Staff navigation
     { name: 'Dashboard', href: '/app/dashboard', icon: HomeIcon },
     { name: 'Patients', href: '/app/patients', icon: UserGroupIcon },
     { name: 'Patient Invitations', href: '/app/patient-invitations', icon: EnvelopeIcon },
