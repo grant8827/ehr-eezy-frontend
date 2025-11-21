@@ -20,6 +20,10 @@ import Profile from './pages/Profile';
 import Staff from './pages/Staff';
 import JoinConsultation from './pages/JoinConsultation';
 import PatientInvitations from './pages/PatientInvitations';
+import PharmacyDashboard from './components/pharmacy/PharmacyDashboard';
+import RoleBasedRedirect from './components/RoleBasedRedirect';
+import StaffProtectedRoute from './components/StaffProtectedRoute';
+
 function App() {
   return (
     <AuthProvider>
@@ -38,6 +42,13 @@ function App() {
             <Route path="/join/*" element={<JoinConsultation />} />
             <Route path="/app/telehealth/join" element={<JoinConsultation />} />
             
+            {/* Pharmacy Dashboard - Only for pharmacy users */}
+            <Route path="/pharmacy" element={
+              <ProtectedRoute>
+                <PharmacyDashboard />
+              </ProtectedRoute>
+            } />
+            
             {/* Patient Portal (public access for patients) */}
             <Route path="/patient-portal/*" element={
               <ProtectedRoute allowPatients={true}>
@@ -45,11 +56,11 @@ function App() {
               </ProtectedRoute>
             } />
             
-            {/* Protected routes */}
+            {/* Protected routes - Staff only (no pharmacy access) */}
             <Route path="/app" element={
-              <ProtectedRoute>
+              <StaffProtectedRoute>
                 <Layout />
-              </ProtectedRoute>
+              </StaffProtectedRoute>
             }>
               <Route index element={<Navigate to="/app/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />

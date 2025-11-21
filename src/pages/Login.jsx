@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 const Login = () => {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user, isPharmacy } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
@@ -13,6 +13,10 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated) {
+    // Redirect pharmacy users to pharmacy dashboard
+    if (user?.role === 'pharmacy') {
+      return <Navigate to="/pharmacy" replace />;
+    }
     return <Navigate to="/app" replace />;
   }
 
@@ -24,7 +28,13 @@ const Login = () => {
       const result = await login(formData.email, formData.password);
       if (result.success) {
         toast.success('Login successful!');
-        navigate('/app');
+        // Check user role from localStorage since context might not be updated yet
+        const userData = JSON.parse(localStorage.getItem('user'));
+        if (userData?.role === 'pharmacy') {
+          navigate('/pharmacy');
+        } else {
+          navigate('/app');
+        }
       } else {
         toast.error(result.error);
       }

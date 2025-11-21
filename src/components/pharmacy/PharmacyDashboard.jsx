@@ -17,12 +17,28 @@ import PharmacyStaff from './PharmacyStaff';
 const PharmacyDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [pharmacyInfo, setPharmacyInfo] = useState({
-    name: 'CVS Pharmacy - Main Street',
-    address: '123 Main St, Springfield, IL 62701',
-    phone: '(217) 555-0123',
-    email: 'pharmacy@cvs.com',
-  });
+  
+  // Load pharmacy info from localStorage
+  const getPharmacyInfo = () => {
+    const pharmacy = localStorage.getItem('pharmacy');
+    if (pharmacy) {
+      const data = JSON.parse(pharmacy);
+      return {
+        name: data.name || 'Pharmacy',
+        address: data.address ? `${data.address}, ${data.city}, ${data.state} ${data.zip_code}` : '',
+        phone: data.phone || '',
+        email: data.email || '',
+      };
+    }
+    return {
+      name: 'CVS Pharmacy - Main Street',
+      address: '123 Main St, Springfield, IL 62701',
+      phone: '(217) 555-0123',
+      email: 'pharmacy@cvs.com',
+    };
+  };
+  
+  const [pharmacyInfo, setPharmacyInfo] = useState(getPharmacyInfo());
 
   const navigation = [
     { id: 'dashboard', name: 'Dashboard', icon: HomeIcon },

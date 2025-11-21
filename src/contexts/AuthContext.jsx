@@ -100,12 +100,15 @@ export const AuthProvider = ({ children }) => {
         password,
       });
 
-      const { token, user: userData, business } = response.data;
+      const { token, user: userData, business, pharmacy } = response.data;
       
       localStorage.setItem('auth_token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       if (business) {
         localStorage.setItem('business', JSON.stringify(business));
+      }
+      if (pharmacy) {
+        localStorage.setItem('pharmacy', JSON.stringify(pharmacy));
       }
       setUser(userData);
 
@@ -174,6 +177,7 @@ export const AuthProvider = ({ children }) => {
     isNurse: user?.role === 'nurse',
     isTherapist: user?.role === 'therapist',
     isReceptionist: user?.role === 'receptionist',
+    isPharmacy: user?.role === 'pharmacy',
   };
 
   return (
