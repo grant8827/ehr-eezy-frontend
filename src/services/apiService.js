@@ -206,6 +206,8 @@ export const messagesAPI = {
   delete: (id) => api.delete(`/messages/${id}`),
   markAsRead: (id) => api.post(`/messages/${id}/read`),
   getUnreadCount: () => api.get('/messages/unread/count'),
+  getConversations: () => api.get('/messages/conversations'),
+  getAvailableUsers: (params = {}) => api.get('/messages/available-users', { params }),
 };
 
 // Telehealth API
